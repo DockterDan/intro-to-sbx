@@ -12,9 +12,9 @@ You picked **Balanced** during setup. In **Terminal B**, see what that actually 
 sbx policy ls
 ```
 
-Should look like:
+What you should see:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 POLICY                                 SOURCE   APPLIES TO              SUMMARY
 c1abac6c-5f39-4a37-ac68-96f09651b1fc   kit      sandbox:sandbox-alpha   network: 3 allow
 local-policy                           local    all                     network: 192 allow; filesystem read: 1 allow; filesystem write: 1 allow
@@ -26,13 +26,13 @@ Two things to read off this. `local-policy` is your **Balanced** bundle: 192 all
 
 In **Terminal A** (attach with `sbx run --name sandbox-alpha` if you exited), hand the agent five URLs — two on the default lists, three not:
 
-```text terminal-id=a
+```prompt terminal-id=a
 Run these five curls and tell me what you see for each: curl -s https://github.com -o /dev/null -w "github.com: %{http_code} (%{size_download} bytes)\n" ; then the same for pypi.org, reddit.com, wikipedia.org, and nasa.gov.
 ```
 
-Expected:
+What you should see:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 github.com: 200 (591919 bytes)
 pypi.org: 200 (22848 bytes)
 reddit.com: 403 (117 bytes)
@@ -58,9 +58,9 @@ We'll need `nasa.gov` later in Step 5, so open just that one domain — a target
 sbx policy allow network nasa.gov
 ```
 
-Should look like:
+What you should see:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 Rule added to policy local (scope: global): 3fa2c8d1-77e0-42a3-a162-536ec0bceeed (nasa.gov)
 ```
 
@@ -78,7 +78,7 @@ sbx policy ls
 
 The rule lands inside `local-policy` — watch its summary change:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 local-policy   local   all   network: 193 allow, 1 deny; filesystem read: 1 allow; filesystem write: 1 allow
 ```
 
@@ -90,13 +90,13 @@ Rules apply immediately on most setups. If one ever doesn't take (say, mid-conne
 
 In **Terminal A**, ask the agent to hit PyPI both ways:
 
-```text terminal-id=a
+```prompt terminal-id=a
 Run curl -s https://pypi.org -o /dev/null -w "pypi.org: %{http_code} (%{size_download} bytes)\n" and then run pip install requests 2>&1 | tail -3. Tell me what you see for each.
 ```
 
-Expected:
+What you should see:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 pypi.org: 403 (171 bytes)
 
 ERROR: Could not find a version that satisfies the requirement requests

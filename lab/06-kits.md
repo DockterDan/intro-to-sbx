@@ -62,9 +62,9 @@ Catch spec errors before any sandbox exists. In **Terminal B**:
 sbx kit validate ~/workshop/kits/docker-review/
 ```
 
-Should look like:
+What you should see:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 VALID: /Users/me/workshop/kits/docker-review/ (directory)
 ```
 
@@ -90,7 +90,7 @@ sbx run --name sandbox-kits
 
 And use the skill it was born with:
 
-```text terminal-id=a
+```prompt terminal-id=a
 Review the Dockerfile in research-app/ against best practices and give me a structured assessment.
 ```
 

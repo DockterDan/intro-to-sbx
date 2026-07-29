@@ -37,9 +37,9 @@ Log in with your Docker account:
 sbx login
 ```
 
-Should look like:
+What you should see:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 Your one-time device confirmation code is: HRLC-BPHK
 Open this URL to sign in: https://login.docker.com/activate?user_code=HRLC-BPHK
 
@@ -59,7 +59,7 @@ sbx policy reset
 
 The CLI restarts the daemon, resets policies, and shows the picker:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 Initialize the global network policy for your sandboxes:
 
   Applies to all sandboxes, current and future — change it later with
@@ -79,9 +79,9 @@ Initialize the global network policy for your sandboxes:
 2
 ```
 
-Should look like:
+What you should see:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 Network policy set to "Balanced". Default deny, with common dev sites allowed.
 ```
 
@@ -109,9 +109,9 @@ Verify it's stored:
 sbx secret ls
 ```
 
-Should look like:
+What you should see:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 SCOPE      TYPE      NAME        SECRET
 (global)   service   anthropic   sk-ant******...******0356
 ```

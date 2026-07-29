@@ -20,9 +20,9 @@ The first run pulls the sandbox template image, so give it a moment. Everything 
 sbx ls
 ```
 
-Should look like:
+What you should see:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 SANDBOX         AGENT    STATUS    PORTS   WORKSPACE
 sandbox-alpha   claude   running           /Users/me/workshop/sbx
 ```
@@ -45,13 +45,13 @@ Claude connects straight in. From here on, everything you type in Terminal A goe
 
 Paste this prompt to the agent:
 
-```text terminal-id=a
+```prompt terminal-id=a
 Run uname -a; whoami; pwd and tell me what you see.
 ```
 
-Expected — three tells, one per line:
+What you should see — three tells, one per line:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 Linux sandbox-alpha 7.0.12 #1 SMP PREEMPT Wed Jul 8 23:10:49 UTC 2026 aarch64 GNU/Linux
 agent
 /Users/me/workshop/sbx

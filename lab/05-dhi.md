@@ -48,7 +48,7 @@ sbx run --name sandbox-alpha
 
 Give it the job — open-ended on purpose:
 
-```text terminal-id=a
+```prompt terminal-id=a
 There's a research-app/ directory in the workspace with a Dockerfile already in it. Build me a small, polished dashboard that mixes two threads: open-source projects from GitHub and current space missions, connected in an unexpected way. Research with real sources — try nasa.gov, space news outlets, and GitHub — cap yourself at 5-6 external requests and move on when something is blocked. Constraints: only write app.py; stdlib only; embed all research data inline; serve HTTP on port 8000 on 0.0.0.0; light clean design, no emoji; include a Sources section. Sanity-check it with curl before reporting back.
 ```
 
@@ -104,9 +104,9 @@ What did we just ship? In **Terminal B**:
 docker scout quickview research-app:v1
 ```
 
-Should look like (counts vary in real life):
+What you should see (counts vary in real life):
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
  Target             │  research-app:v1  │    1C     2H     3M    28L     7?
    digest           │  3ab201f359e1     │
  Base image         │  python:3-slim    │    1C     2H     3M    28L     7?
@@ -149,9 +149,9 @@ docker stop research-app
 docker scout quickview research-app:v2
 ```
 
-Should look like:
+What you should see:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
  Target   │  research-app:v2  │    0C     0H     3M    15L    18?
    digest │  cc23ed01d069     │
 ```

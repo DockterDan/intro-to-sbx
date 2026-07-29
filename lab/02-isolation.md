@@ -20,7 +20,7 @@ echo "Written from the host" > ~/workshop/sbx/host-to-agent.txt
 
 Now ask the agent about it in **Terminal A**:
 
-```text terminal-id=a
+```prompt terminal-id=a
 There should be a file called host-to-agent.txt in your workspace. Run cat host-to-agent.txt and tell me what you see.
 ```
 
@@ -28,7 +28,7 @@ It sees your file, instantly — no copy, no sync. Same directory, mounted throu
 
 Now reverse the direction — have the agent write a file for you. In **Terminal A**:
 
-```text terminal-id=a
+```prompt terminal-id=a
 Create a file called agent-to-host.txt in your workspace with the text "Written from the agent".
 ```
 
@@ -54,13 +54,13 @@ echo "This file lives in your home, not the workspace" > ~/workshop/host-marker.
 
 Now ask the agent to go get it, in **Terminal A**:
 
-```text terminal-id=a
+```prompt terminal-id=a
 Try to read a file called host-marker.txt. Run cat ~/workshop/host-marker.txt 2>&1 and also try the absolute path /Users/me/workshop/host-marker.txt, and tell me what happens.
 ```
 
-Expected, inside the sandbox:
+What you should see, inside the sandbox:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 cat: /home/agent/workshop/host-marker.txt: No such file or directory (exit 1)
 cat: /Users/me/workshop/host-marker.txt: No such file or directory (exit 1)
 ```
@@ -77,7 +77,7 @@ sbx secret ls
 
 So ask the agent for it, in **Terminal A**:
 
-```text terminal-id=a
+```prompt terminal-id=a
 Run echo "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" and env | grep -i anthropic and tell me what you see.
 ```
 

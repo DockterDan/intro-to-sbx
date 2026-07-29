@@ -70,7 +70,7 @@ sbx run --name sandbox-alpha
 
 Ask it to fetch something from Wikipedia directly:
 
-```text terminal-id=a
+```prompt terminal-id=a
 Fetch https://en.wikipedia.org/api/rest_v1/page/summary/Artemis_program and tell me the HTTP status and any body you got back.
 ```
 
@@ -86,9 +86,9 @@ sbx policy log sandbox-alpha
 sbx mcp load wiki-mcp --sandbox sandbox-alpha
 ```
 
-Expected — a real error, worth reading:
+What you should see — a real error, worth reading:
 
-```text no-run-button no-copy-button
+```output no-run-button no-copy-button
 ERROR: add "wiki-mcp" to sandbox "sandbox-alpha": add MCP gateway server: request failed: 409 Conflict: no MCP gateway is running for sandbox "sandbox-alpha"
 ```
 
@@ -124,7 +124,7 @@ Now that a gateway exists, `sbx mcp load <name> --sandbox sandbox-alpha` can als
 sbx run --name sandbox-alpha
 ```
 
-```text terminal-id=a
+```prompt terminal-id=a
 Using your MCP tools — wiki-mcp for background and duck-mcp for recent news — tell me what's happening with NASA's Artemis program. At the end, tell me which tools you used, and if anything didn't work, explain what happened.
 ```
 
