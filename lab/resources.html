@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SBX quick reference</title>
+<style>
+  :root { --ink:#1c1c1a; --muted:#6b6b66; --accent:#0b3d91; --line:#e4e4e0; --chip:#f2f2ef; }
+  body { font-family: system-ui, -apple-system, sans-serif; color: var(--ink); background:#fff;
+         max-width: 780px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.55; }
+  h1 { font-size: 1.5rem; margin-bottom: .25rem; }
+  .sub { color: var(--muted); margin-top: 0; }
+  h2 { font-size: 1.05rem; margin-top: 2rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  td, th { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  code { background: var(--chip); padding: .1rem .35rem; border-radius: 4px; font-size: .88em; }
+  a { color: var(--accent); }
+  .note { color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+  <h1>Docker Sandboxes — quick reference</h1>
+  <p class="sub">The commands this lab teaches, and where to go next.</p>
+
+  <h2>Install</h2>
+  <table>
+    <tr><td>macOS</td><td><code>brew install docker/tap/sbx</code></td></tr>
+    <tr><td>Windows</td><td><code>winget install -h Docker.sbx</code></td></tr>
+    <tr><td>Requires</td><td>Docker Desktop 4.58+ · written against sbx v0.35</td></tr>
+  </table>
+
+  <h2>Sandboxes</h2>
+  <table>
+    <tr><td><code>sbx create --name &lt;n&gt; claude &lt;dir&gt;</code></td><td>Create a sandbox for a workspace</td></tr>
+    <tr><td><code>sbx run --name &lt;n&gt;</code></td><td>Attach to the agent (restarts a stopped sandbox)</td></tr>
+    <tr><td><code>sbx run claude</code></td><td>One step: create + attach with a default name</td></tr>
+    <tr><td><code>sbx ls</code> · <code>sbx stop</code> · <code>sbx rm</code></td><td>List, halt, delete (rm confirms; refuses while in use)</td></tr>
+    <tr><td><code>sbx reset</code></td><td>Wipe everything: sandboxes, policies, secrets, sign-in</td></tr>
+  </table>
+
+  <h2>Network policy</h2>
+  <table>
+    <tr><td><code>sbx policy reset</code></td><td>Pick Open / Balanced / Locked Down</td></tr>
+    <tr><td><code>sbx policy ls</code></td><td>Policies and rule summaries</td></tr>
+    <tr><td><code>sbx policy allow|deny network &lt;host&gt;</code></td><td>Rules; wildcards <code>*.host.com</code>, <code>**</code>, ports, <code>--sandbox</code> scoping</td></tr>
+    <tr><td><code>sbx policy rm network --resource &lt;host&gt;</code></td><td>Remove a rule</td></tr>
+    <tr><td><code>sbx policy log &lt;sandbox&gt;</code></td><td>The audit trail — the source of truth</td></tr>
+  </table>
+
+  <h2>Secrets &amp; MCP</h2>
+  <table>
+    <tr><td><code>sbx secret set -g &lt;service&gt;</code></td><td>Store a provider key in the OS keychain</td></tr>
+    <tr><td><code>export SBX_MCP_URL=…</code> then restart daemon</td><td>Unlocks the <code>sbx mcp</code> subtree (per shell!)</td></tr>
+    <tr><td><code>sbx mcp add|inspect|ls|load</code></td><td>Register and manage MCP servers</td></tr>
+    <tr><td><code>sbx create … --static-mcp a --static-mcp b</code></td><td>The gateway is born at create time; <code>load</code> adds servers to an existing gateway (else: 409)</td></tr>
+  </table>
+
+  <h2>Go deeper</h2>
+  <table>
+    <tr><td><a href="https://docs.docker.com/ai/sandboxes/" target="_blank" rel="noopener">Docker Sandboxes docs</a></td><td>Install, concepts, policy, governance</td></tr>
+    <tr><td><a href="https://github.com/docker/sbx-releases/releases" target="_blank" rel="noopener">sbx release notes</a></td><td>The CLI moves fast — check what changed</td></tr>
+    <tr><td><a href="https://www.docker.com/products/hardened-images/" target="_blank" rel="noopener">Docker Hardened Images</a></td><td>The Step 5 base-image swap</td></tr>
+    <tr><td><a href="https://docs.docker.com/scout/" target="_blank" rel="noopener">Docker Scout</a></td><td>quickview, cves, compare</td></tr>
+    <tr><td><a href="https://docs.docker.com/ai/mcp-catalog-and-toolkit/" target="_blank" rel="noopener">MCP Catalog &amp; Toolkit</a></td><td>The <code>mcp/*</code> images used in Step 4</td></tr>
+  </table>
+
+  <p class="note">Links open in a new tab. This page ships with the lab; the simulator itself never touches the network.</p>
+
+  <h2>Start over</h2>
+  <p class="note">The lab saves your terminal session in this browser so a refresh
+  doesn't lose your place. To wipe everything — transcript, sandboxes, policies —
+  and begin from a clean slate:</p>
+  <p>
+    <button id="reset-lab" style="font: inherit; padding: .5rem 1rem; border: 1px solid var(--line);
+      border-radius: 6px; background: var(--chip); color: var(--ink); cursor: pointer;">
+      Reset this lab
+    </button>
+    <span id="reset-msg" class="note" style="margin-left: .75rem;"></span>
+  </p>
+  <script>
+    document.getElementById('reset-lab').addEventListener('click', async function () {
+      var msg = document.getElementById('reset-msg');
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+        if (window.indexedDB && indexedDB.databases) {
+          var dbs = await indexedDB.databases();
+          await Promise.all(dbs.map(function (db) {
+            return db && db.name ? indexedDB.deleteDatabase(db.name) : null;
+          }));
+        }
+        msg.textContent = 'Cleared — reloading…';
+        setTimeout(function () { window.top.location.reload(); }, 400);
+      } catch (e) {
+        msg.textContent = 'Could not clear automatically — use DevTools → Application → Clear site data.';
+      }
+    });
+  </script>
+</body>
+</html>

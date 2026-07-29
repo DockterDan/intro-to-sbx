@@ -1,26 +1,47 @@
-title: "My Lab"
-description: "A starter Simspace lab — edit these files, preview locally, and push to deploy."
+title: "Intro to Docker Sandboxes (SBX 101)"
+description: "The SBX 101 workshop, fully simulated in your browser."
 
-# Command behaviour lives in simulator.yaml (relative to this file).
 simulator: simulator.yaml
 
-# One terminal tab. Add more (each with a unique id) for multi-shell labs.
+# Two terminal tabs, like the real workshop: A is where you attach to the
+# agent, B stays a host shell so you can watch policy logs while the agent works.
 terminals:
-  - id: host
-    title: Terminal
+  - id: a
+    title: Terminal A
     icon: terminal
+  - id: b
+    title: Terminal B
+    icon: dns
 
-# Seed the virtual filesystem. Built-in `ls`/`cat` reflect these immediately.
+# The virtual filesystem represents ~/workshop on your machine.
 files:
-  README.txt: |
-    Welcome to your lab's virtual filesystem.
-    Files created by scenarios and save-as blocks appear here too.
+  sbx/README.txt: |
+    This directory (~/workshop/sbx) is your sandbox workspace.
+    It is the ONLY directory the agent can see.
 
-# Ordered instruction pages (markdown), rendered in the left-hand panel.
 sections:
-  - title: Introduction
-    contentPath: 00-intro.md
+  - title: Welcome & setup
+    contentPath: 00-setup.md
+  - title: "Step 1 — Your first sandbox"
+    contentPath: 01-first-sandbox.md
+  - title: "Step 2 — Isolation proof"
+    contentPath: 02-isolation.md
+  - title: "Step 3 — Network policy"
+    contentPath: 03-network-policy.md
+  - title: "Step 4 — Tools via MCP"
+    contentPath: 04-mcp.md
+  - title: "Step 5 — Hardened output (DHI)"
+    contentPath: 05-dhi.md
+  - title: "Step 6 — Standardize with Kits"
+    contentPath: 06-kits.md
+  - title: Wrap-up
+    contentPath: 07-wrap.md
 
-# $$name$$ in markdown is replaced with these values at render time.
-variables:
-  name: world
+# Note: many sites (docs.docker.com included) send X-Frame-Options/CSP headers
+# that refuse iframe embedding — so the tab shows our own reference page,
+# served with the lab (same-origin), with links out to the real docs.
+services:
+  - id: docs
+    title: Reference
+    icon: menu_book
+    url: lab/resources.html

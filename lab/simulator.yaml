@@ -1,44 +1,2540 @@
 version: "2.0"
 
 metadata:
-  id: my-lab
-  title: "My Lab"
-  summary: "Describe what this lab teaches."
+  id: intro-to-sbx
+  title: "Intro to Docker Sandboxes (SBX 101)"
+  summary: "Create a sandbox, prove the isolation, shape the network, attach MCP tools, ship hardened output, and package it all as a kit."
+  authors: ["Dan Ndombe"]
 
-# In-memory state. Scenarios read it in `when.state` and write it in `then.state`.
+objectives:
+  - "Create and manage sandboxes with `sbx create` / `ls` / `run` / `stop` / `rm`"
+  - "Prove the VM isolation boundary: workspace, filesystem, secrets"
+  - "Read and write network policy; use the audit log as ground truth"
+  - "Register MCP servers and attach them to a sandbox"
+  - "Scan agent output with Docker Scout and harden it with DHI"
+  - "Package capability as a reusable sbx kit"
+
+# Outputs in this file mirror sbx v0.35.0 as captured on a real machine.
+
 state:
-  greeted: false
+  setup:
+    pickerOpen: false
+    policySet: false
+    awaitingKey: false
+    secretSet: false
+  alpha:
+    exists: false
+    running: false
+    mcp: false
+  bravo:
+    exists: false
+    running: false
+  kits:
+    exists: false
+  rm:
+    pending: ""
+  session:
+    current: ""
+  iso:
+    hostSaved: false
+    agentToHost: false
+    markerSaved: false
+    cleaned: false
+  policy:
+    nasa: false
+    pypi: false
+    example: false
+  net:
+    phase: ""
+  mcp:
+    exported: false
+    enabled: false
+    wikiAdded: false
+    duckAdded: false
+  app:
+    appWritten: false
+    swapped: false
+    builtV1: false
+    builtV2: false
+    running: false
+  kit:
+    sandboxExists: false
 
 settings:
+  streaming: true
+  agentThinkMs: 800
   pace:
-    pull: 900   # simulated layer download
+    layer: 350
+    boot: 600
+    pull: 1000
+    build: 900
+    scan: 1300
+
+# One control so the Settings dialog (and its Reset button) exists in the UI.
+# It mirrors Step 3's allow rule — useful if a learner skips ahead.
+controls:
+  - id: allow-nasa
+    label: "Network policy: allow nasa.gov"
+    description: "Same effect as `sbx policy allow network nasa.gov` (Step 3.3). Flip it on if you skipped Step 3 and later steps complain."
+    state: policy.nasa
+    enabled: true
+    disabled: false
 
 defaults:
   unmatched:
-    stderr: ["Error: that command isn't part of this lab yet."]
-    exit: 1
+    stderr:
+      - "Command not simulated in this lab — follow the instruction panel."
+    exit: 127
+  unmatchedAgent:
+    output:
+      - "● (scripted agent) I only know the prompts in this workshop — copy the next \"Prompt to agent\" block from the instructions panel."
 
 scenarios:
-  # A plain command. `command:` is the leading tokens; trailing args are ignored
-  # unless you match them with `args:`.
-  - id: echo
-    when:
-      command: [echo]
-    then:
-      state: { greeted: true }
-      output: ["Hello from your lab!"]
 
-  # Capture a positional argument and template it into the output. `{{ args.0 }}`
-  # is the first token after the command path.
-  - id: docker-run
+  # ──────────────────────────────────────────────────────────────────
+  # Setup
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: version
     when:
-      command: [docker, run]
-      args:
-        0: { any: true }
+      command: sbx version
+    then:
+      output: ["sbx version: v0.35.0 01e01520456e4126a9653471e7072e4d9b280321"]
+
+  - id: login
+    when:
+      command: sbx login
     then:
       output:
-        - "Unable to find image '{{ args.0 }}' locally"
-        - { text: "latest: Pulling from library/{{ args.0 }}", delay: short }
-        - { text: "a480a496...: Pull complete", delay: pull }
-        - { text: "Status: Downloaded newer image for {{ args.0 }}", delay: short }
-        - "Hello from Docker!"
+        - "Your one-time device confirmation code is: HRLC-BPHK"
+        - "Open this URL to sign in: https://login.docker.com/activate?user_code=HRLC-BPHK"
+        - ""
+        - "By logging in, you agree to our Subscription Service Agreement."
+        - ""
+        - "Waiting for authentication..."
+        - { text: "Signed in as dockterdan.", delay: long }
+        - ""
+        - "Tip: set your default network policy with `sbx policy reset`."
+
+  - id: policy-reset
+    when:
+      command: sbx policy reset
+    then:
+      state: { setup.pickerOpen: true }
+      output:
+        - "Stopping daemon at /Users/me/Library/Application Support/com.docker.sandboxes/sandboxes/sandboxd/sandboxd.sock..."
+        - { text: "✓ Daemon stopped successfully", delay: boot }
+        - "✓ Policies reset."
+        - ""
+        - { text: "Daemon started (PID: 23982, socket: /Users/me/Library/Application Support/com.docker.sandboxes/sandboxes/sandboxd/sandboxd.sock)", delay: boot }
+        - "Logs: /Users/me/Library/Application Support/com.docker.sandboxes/sandboxes/sandboxd/daemon.log"
+        - ""
+        - "Initialize the global network policy for your sandboxes:"
+        - ""
+        - "  Applies to all sandboxes, current and future — change it later with"
+        - "  \"sbx policy allow/deny/rm\". Kits, including built-in agent kits, may"
+        - "  also add per-sandbox rules."
+        - ""
+        - "     1. Open         — All network traffic allowed, no restrictions."
+        - "  ❯  2. Balanced     — Default deny, with common dev sites allowed."
+        - "     3. Locked Down  — All network traffic blocked unless you allow it."
+        - ""
+        - "  Type 1, 2, or 3 and press Enter to confirm."
+
+  - id: picker-balanced
+    when:
+      command: "2"
+      state: { setup.pickerOpen: true }
+    then:
+      state: { setup.pickerOpen: false, setup.policySet: true }
+      output:
+        - "Network policy set to \"Balanced\". Default deny, with common dev sites allowed."
+        - ""
+        - "  To change this anytime, run:"
+        - "    sbx policy reset"
+        - ""
+        - "  To add or remove rules, run:"
+        - "    sbx policy allow network <host>"
+        - "    sbx policy deny network <host>"
+        - "    sbx policy rm network <host>"
+
+  - id: picker-open
+    when:
+      command: "1"
+      state: { setup.pickerOpen: true }
+    then:
+      output: ["This workshop assumes Balanced — type 2 and press Enter."]
+
+  - id: picker-locked
+    when:
+      command: "3"
+      state: { setup.pickerOpen: true }
+    then:
+      output: ["This workshop assumes Balanced — type 2 and press Enter."]
+
+  - id: secret-set
+    when:
+      command: sbx secret set
+    then:
+      state: { setup.awaitingKey: true, setup.pickerOpen: false }
+      output: ["Enter secret: ▊"]
+
+  - id: secret-key-paste
+    when:
+      command: "sk-ant-api03-sbx101-demo-2f9d4e8a7c1b0356"
+      state: { setup.awaitingKey: true }
+    then:
+      state: { setup.awaitingKey: false, setup.secretSet: true }
+      output: ["Saved secret for service \"anthropic\" in scope \"(global)\""]
+
+  - id: secret-key-paste-early
+    when:
+      command: "sk-ant-api03-sbx101-demo-2f9d4e8a7c1b0356"
+    then:
+      stderr: ["That looks like an API key — run `sbx secret set -g anthropic` first, then paste it."]
+      exit: 1
+
+  - id: secret-ls
+    when:
+      command: sbx secret ls
+      state: { setup.secretSet: true }
+    then:
+      output:
+        - "SCOPE      TYPE      NAME        SECRET"
+        - "(global)   service   anthropic   sk-ant******...******0356"
+
+  - id: secret-ls-empty
+    when:
+      command: sbx secret ls
+    then:
+      output: ["No secrets found. Run 'sbx secret set --help' to see available services."]
+
+  # ──────────────────────────────────────────────────────────────────
+  # Step 1 — create / ls / run / stop / rm
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: create-alpha-mcp
+    when:
+      command: sbx create
+      args: { --name: "sandbox-alpha", --static-mcp: { any: true } }
+      state: { alpha.exists: false }
+    then:
+      state: { alpha.exists: true, alpha.running: true, alpha.mcp: true }
+      output:
+        - "claude-code-docker: Pulling from docker/sandbox-templates"
+        - { text: "9a3bab17aae9: Already exists", delay: layer }
+        - { text: "260181b958eb: Already exists", delay: layer }
+        - { text: "2aaaa9a4c1cf: Already exists", delay: layer }
+        - "Digest: sha256:9a3bab17aae9790823ff6c591e97a0608eedbfda26b7e0d4818df909a7c81d32"
+        - "Status: Image is up to date for docker/sandbox-templates:claude-code-docker"
+        - { text: "✓ Created sandbox 'sandbox-alpha'", delay: boot }
+        - "  Workspace: /Users/me/workshop/sbx (direct mount)"
+        - "  Agent: claude"
+        - ""
+        - "To connect to this sandbox, run:"
+        - "  sbx run --name sandbox-alpha"
+
+  - id: create-alpha
+    when:
+      command: sbx create
+      args: { --name: "sandbox-alpha" }
+      state: { alpha.exists: false }
+    then:
+      state: { alpha.exists: true, alpha.running: true, setup.pickerOpen: false }
+      output:
+        - "claude-code-docker: Pulling from docker/sandbox-templates"
+        - { text: "9a3bab17aae9: Download complete", delay: pull }
+        - { text: "260181b958eb: Download complete", delay: layer }
+        - { text: "fd14358c94c2: Download complete", delay: layer }
+        - { text: "2aaaa9a4c1cf: Download complete", delay: layer }
+        - { text: "11f3c748c71d: Pulling layer fs [==========================>          ]  85.98MB/94.98MB", delay: pull }
+        - { text: "37357a4313a9: Pulling layer fs [=========>                           ]  58.72MB/322.9MB", delay: pull }
+        - { text: "22c456681ebb: Download complete", delay: pull }
+        - { text: "37357a4313a9: Download complete", delay: pull }
+        - "Digest: sha256:9a3bab17aae9790823ff6c591e97a0608eedbfda26b7e0d4818df909a7c81d32"
+        - "Status: Downloaded newer image for docker/sandbox-templates:claude-code-docker"
+        - { text: "✓ Created sandbox 'sandbox-alpha'", delay: boot }
+        - "  Workspace: /Users/me/workshop/sbx (direct mount)"
+        - "  Agent: claude"
+        - ""
+        - "To connect to this sandbox, run:"
+        - "  sbx run --name sandbox-alpha"
+
+  - id: create-alpha-exists
+    when:
+      command: sbx create
+      args: { --name: "sandbox-alpha" }
+    then:
+      stderr: ["ERROR: sandbox 'sandbox-alpha' already exists. Use 'sbx run --name sandbox-alpha' to connect to it"]
+      exit: 1
+
+  - id: create-bravo
+    when:
+      command: sbx create
+      args: { --name: "sandbox-bravo" }
+      state: { bravo.exists: false }
+    then:
+      state: { bravo.exists: true, bravo.running: true }
+      output:
+        - "claude-code-docker: Pulling from docker/sandbox-templates"
+        - { text: "9a3bab17aae9: Already exists", delay: layer }
+        - { text: "260181b958eb: Already exists", delay: layer }
+        - "Digest: sha256:9a3bab17aae9790823ff6c591e97a0608eedbfda26b7e0d4818df909a7c81d32"
+        - "Status: Image is up to date for docker/sandbox-templates:claude-code-docker"
+        - { text: "✓ Created sandbox 'sandbox-bravo'", delay: boot }
+        - "  Workspace: /Users/me/workshop/sbx (direct mount)"
+        - "  Agent: claude"
+        - ""
+        - "To connect to this sandbox, run:"
+        - "  sbx run --name sandbox-bravo"
+
+  - id: create-bravo-exists
+    when:
+      command: sbx create
+      args: { --name: "sandbox-bravo" }
+    then:
+      stderr: ["ERROR: sandbox 'sandbox-bravo' already exists. Use 'sbx run --name sandbox-bravo' to connect to it"]
+      exit: 1
+
+  - id: create-kits
+    when:
+      command: sbx create
+      args: { --name: "sandbox-kits" }
+      state: { kit.sandboxExists: false }
+    then:
+      state: { kit.sandboxExists: true, kits.exists: true }
+      files:
+        - create: "sbx/.claude/skills/docker-review/SKILL.md"
+          content: |
+            ---
+            name: docker-review
+            description: Review a Dockerfile for best practices. Use when the user asks to review, audit, or improve a Dockerfile.
+            ---
+
+            When reviewing a Dockerfile, output ONLY a Markdown table with exactly the
+            columns and exactly the five rows below, in this exact order. Do not write
+            any prose before or after the table.
+
+            | # | Aspect | Status | Findings | Recommendation |
+            | --- | --- | --- | --- | --- |
+            | 1 | Base image | Pass / Warn / Fix | ... | ... |
+            | 2 | Layer order | Pass / Warn / Fix | ... | ... |
+            | 3 | Image size | Pass / Warn / Fix | ... | ... |
+            | 4 | Security | Pass / Warn / Fix | ... | ... |
+            | 5 | Reproducibility | Pass / Warn / Fix | ... | ... |
+
+            Rules:
+            - Use exactly one of Pass, Warn, or Fix in the Status column.
+            - Always produce all five rows in the exact order shown.
+            - Fill Findings with what you actually see in the Dockerfile, not generic advice.
+            - If Status is Pass, the Recommendation is the word None.
+            - No commentary outside the table.
+      output:
+        - "claude-code-docker: Pulling from docker/sandbox-templates"
+        - { text: "9a3bab17aae9: Already exists", delay: layer }
+        - { text: "260181b958eb: Already exists", delay: layer }
+        - "Digest: sha256:9a3bab17aae9790823ff6c591e97a0608eedbfda26b7e0d4818df909a7c81d32"
+        - "Status: Image is up to date for docker/sandbox-templates:claude-code-docker"
+        - { text: "✓ Created sandbox 'sandbox-kits'", delay: boot }
+        - "  Workspace: /Users/me/workshop/sbx (direct mount)"
+        - "  Agent: claude"
+        - ""
+        - "To connect to this sandbox, run:"
+        - "  sbx run --name sandbox-kits"
+
+  - id: ls-with-bravo-running
+    when:
+      command: sbx ls
+      state: { bravo.exists: true, bravo.running: true }
+    then:
+      output:
+        - "SANDBOX         AGENT    STATUS    PORTS   WORKSPACE"
+        - "sandbox-alpha   claude   running           /Users/me/workshop/sbx"
+        - "sandbox-bravo   claude   running           /Users/me/workshop/sbx"
+
+  - id: ls-with-bravo-stopped
+    when:
+      command: sbx ls
+      state: { bravo.exists: true, bravo.running: false }
+    then:
+      output:
+        - "SANDBOX         AGENT    STATUS    PORTS   WORKSPACE"
+        - "sandbox-alpha   claude   running           /Users/me/workshop/sbx"
+        - "sandbox-bravo   claude   stopped           /Users/me/workshop/sbx"
+
+  - id: ls-with-kits
+    when:
+      command: sbx ls
+      state: { kits.exists: true }
+    then:
+      output:
+        - "SANDBOX         AGENT    STATUS    PORTS   WORKSPACE"
+        - "sandbox-alpha   claude   running           /Users/me/workshop/sbx"
+        - "sandbox-kits    claude   running           /Users/me/workshop/sbx"
+
+  - id: ls-alpha-only
+    when:
+      command: sbx ls
+      state: { alpha.exists: true }
+    then:
+      output:
+        - "SANDBOX         AGENT    STATUS    PORTS   WORKSPACE"
+        - "sandbox-alpha   claude   running           /Users/me/workshop/sbx"
+
+  - id: ls-empty
+    when:
+      command: sbx ls
+    then:
+      output:
+        - "No sandboxes found."
+        - "Launch one: sbx run claude"
+
+  - id: run-alpha-running
+    when:
+      command: sbx run
+      args: { --name: "sandbox-alpha" }
+      state: { alpha.exists: true, alpha.running: true }
+    then:
+      state: { session.current: "alpha" }
+      output:
+        - "Starting claude agent in sandbox 'sandbox-alpha'..."
+        - "Workspace: /Users/me/workshop/sbx"
+      session:
+        prompt: "❯ "
+        intro:
+          - "╭─── Claude Code v2.1.195 ──────────────────────────────────╮"
+          - "│  Welcome back!                                            │"
+          - "│  Opus 4.8 (1M context) · API Usage Billing                │"
+          - "│  /Users/me/workshop/sbx                                   │"
+          - "╰───────────────────────────────────────────────────────────╯"
+          - "  Type a prompt, or /exit to quit."
+        outro:
+          - "Disconnected from sandbox-alpha."
+
+  - id: run-alpha-stopped
+    when:
+      command: sbx run
+      args: { --name: "sandbox-alpha" }
+      state: { alpha.exists: true, alpha.running: false }
+    then:
+      state: { alpha.running: true, session.current: "alpha" }
+      output:
+        - "Attaching to existing sandbox \"sandbox-alpha\" (workspace: /Users/me/workshop/sbx)."
+        - { text: "Sandbox sandbox-alpha started successfully", delay: boot }
+        - "Starting claude agent in sandbox 'sandbox-alpha'..."
+        - "Workspace: /Users/me/workshop/sbx"
+      session:
+        prompt: "❯ "
+        intro:
+          - "╭─── Claude Code v2.1.195 ──────────────────────────────────╮"
+          - "│  Welcome back!                                            │"
+          - "│  Opus 4.8 (1M context) · API Usage Billing                │"
+          - "│  /Users/me/workshop/sbx                                   │"
+          - "╰───────────────────────────────────────────────────────────╯"
+          - "  Type a prompt, or /exit to quit."
+        outro:
+          - "Disconnected from sandbox-alpha."
+
+  - id: run-alpha-missing
+    when:
+      command: sbx run
+      args: { --name: "sandbox-alpha" }
+    then:
+      stderr:
+        - "ERROR: sandbox \"sandbox-alpha\" does not exist; to create it, name an agent:"
+        - "  sbx run <agent> --name sandbox-alpha"
+      exit: 1
+
+  - id: run-bravo
+    when:
+      command: sbx run
+      args: { --name: "sandbox-bravo" }
+      state: { bravo.exists: true }
+    then:
+      state: { bravo.running: true, session.current: "bravo" }
+      output:
+        - "Starting claude agent in sandbox 'sandbox-bravo'..."
+        - "Workspace: /Users/me/workshop/sbx"
+      session:
+        prompt: "❯ "
+        intro:
+          - "╭─── Claude Code v2.1.195 ──────────────────────────────────╮"
+          - "│  Welcome back!                                            │"
+          - "│  Opus 4.8 (1M context) · API Usage Billing                │"
+          - "│  /Users/me/workshop/sbx                                   │"
+          - "╰───────────────────────────────────────────────────────────╯"
+          - "  A second agent, in a second VM, sharing the same workspace."
+          - "  Type a prompt, or /exit to quit."
+        outro:
+          - "Disconnected from sandbox-bravo."
+
+  - id: run-bravo-missing
+    when:
+      command: sbx run
+      args: { --name: "sandbox-bravo" }
+    then:
+      stderr:
+        - "ERROR: sandbox \"sandbox-bravo\" does not exist; to create it, name an agent:"
+        - "  sbx run <agent> --name sandbox-bravo"
+      exit: 1
+
+  - id: run-kits
+    when:
+      command: sbx run
+      args: { --name: "sandbox-kits" }
+      state: { kit.sandboxExists: true }
+    then:
+      state: { session.current: "kits" }
+      output:
+        - "Starting claude agent in sandbox 'sandbox-kits'..."
+        - "Workspace: /Users/me/workshop/sbx"
+      session:
+        prompt: "❯ "
+        intro:
+          - "╭─── Claude Code v2.1.195 ──────────────────────────────────╮"
+          - "│  Welcome back!                                            │"
+          - "│  Opus 4.8 (1M context) · API Usage Billing                │"
+          - "│  /Users/me/workshop/sbx                                   │"
+          - "╰───────────────────────────────────────────────────────────╯"
+          - "  Type a prompt, or /exit to quit."
+        outro:
+          - "Disconnected from sandbox-kits."
+
+  - id: run-kits-missing
+    when:
+      command: sbx run
+      args: { --name: "sandbox-kits" }
+    then:
+      stderr:
+        - "ERROR: sandbox \"sandbox-kits\" does not exist; to create it, name an agent:"
+        - "  sbx run <agent> --name sandbox-kits"
+      exit: 1
+
+  - id: stop-bravo
+    when:
+      command: sbx stop sandbox-bravo
+      state: { bravo.exists: true }
+    then:
+      state: { bravo.running: false }
+      output: ["Sandbox 'sandbox-bravo' stopped"]
+
+  - id: stop-alpha
+    when:
+      command: sbx stop sandbox-alpha
+      state: { alpha.exists: true }
+    then:
+      state: { alpha.running: false }
+      output: ["Sandbox 'sandbox-alpha' stopped"]
+
+  - id: stop-kits
+    when:
+      command: sbx stop sandbox-kits
+      state: { kits.exists: true }
+    then:
+      output: ["Sandbox 'sandbox-kits' stopped"]
+
+  # rm asks for confirmation, like the real CLI. Typing y completes it.
+
+  - id: rm-bravo-confirm
+    when:
+      command: sbx rm sandbox-bravo
+      state: { bravo.exists: true }
+    then:
+      state: { rm.pending: "bravo" }
+      output: ["Remove sandbox 'sandbox-bravo'? This cannot be undone. (y/N): ▊"]
+
+  - id: rm-alpha-confirm
+    when:
+      command: sbx rm sandbox-alpha
+      state: { alpha.exists: true }
+    then:
+      state: { rm.pending: "alpha" }
+      output: ["Remove sandbox 'sandbox-alpha'? This cannot be undone. (y/N): ▊"]
+
+  - id: rm-kits-confirm
+    when:
+      command: sbx rm sandbox-kits
+      state: { kits.exists: true }
+    then:
+      state: { rm.pending: "kits" }
+      output: ["Remove sandbox 'sandbox-kits'? This cannot be undone. (y/N): ▊"]
+
+  - id: rm-missing
+    when:
+      command: sbx rm
+    then:
+      stderr: ["ERROR: sandbox does not exist"]
+      exit: 1
+
+  - id: rm-confirm-bravo-running
+    when:
+      command: "y"
+      state: { rm.pending: "bravo", bravo.running: true }
+    then:
+      state: { rm.pending: "" }
+      output:
+        - "Deleting sandbox sandbox-bravo..."
+      stderr:
+        - "Error: sandbox 'sandbox-bravo' is in use (e.g. an open SSH connection); close it or re-run with --force"
+      exit: 1
+
+  - id: rm-confirm-bravo
+    when:
+      command: "y"
+      state: { rm.pending: "bravo" }
+    then:
+      state: { rm.pending: "", bravo.exists: false, bravo.running: false }
+      output:
+        - "Deleting sandbox sandbox-bravo..."
+        - { text: "Sandbox 'sandbox-bravo' removed", delay: boot }
+
+  - id: rm-confirm-alpha-running
+    when:
+      command: "y"
+      state: { rm.pending: "alpha", alpha.running: true }
+    then:
+      state: { rm.pending: "" }
+      output:
+        - "Deleting sandbox sandbox-alpha..."
+      stderr:
+        - "Error: sandbox 'sandbox-alpha' is in use (e.g. an open SSH connection); close it or re-run with --force"
+      exit: 1
+
+  - id: rm-confirm-alpha
+    when:
+      command: "y"
+      state: { rm.pending: "alpha" }
+    then:
+      state: { rm.pending: "", alpha.exists: false, alpha.running: false, alpha.mcp: false }
+      output:
+        - "Deleting sandbox sandbox-alpha..."
+        - { text: "Sandbox 'sandbox-alpha' removed", delay: boot }
+
+  - id: rm-confirm-kits
+    when:
+      command: "y"
+      state: { rm.pending: "kits" }
+    then:
+      state: { rm.pending: "", kits.exists: false, kit.sandboxExists: false }
+      output:
+        - "Deleting sandbox sandbox-kits..."
+        - { text: "Sandbox 'sandbox-kits' removed", delay: boot }
+
+  - id: rm-abort-bravo
+    when:
+      command: n
+      state: { rm.pending: "bravo" }
+    then:
+      state: { rm.pending: "" }
+      output: ["Aborted."]
+
+  - id: rm-abort-alpha
+    when:
+      command: n
+      state: { rm.pending: "alpha" }
+    then:
+      state: { rm.pending: "" }
+      output: ["Aborted."]
+
+  - id: rm-abort-kits
+    when:
+      command: n
+      state: { rm.pending: "kits" }
+    then:
+      state: { rm.pending: "" }
+      output: ["Aborted."]
+
+  - id: reset-confirm
+    when:
+      command: "y"
+      state: { rm.pending: "reset" }
+    then:
+      state:
+        rm.pending: ""
+        alpha.exists: false
+        alpha.running: false
+        alpha.mcp: false
+        bravo.exists: false
+        bravo.running: false
+        kits.exists: false
+        kit.sandboxExists: false
+        policy.nasa: false
+        policy.pypi: false
+        policy.example: false
+        setup.secretSet: false
+        setup.policySet: false
+        setup.pickerOpen: false
+        setup.awaitingKey: false
+        net.phase: ""
+        session.current: ""
+      output:
+        - "Deleting all sandboxes..."
+        - { text: "Signed out of dockterdan.", delay: boot }
+        - ""
+        - "✓ Reset complete!"
+        - ""
+        - "(Workspace files and docker images are not touched — same as the real CLI."
+        - " Redo Quick Setup to sign in and set your policy again.)"
+
+  - id: reset-abort
+    when:
+      command: n
+      state: { rm.pending: "reset" }
+    then:
+      state: { rm.pending: "" }
+      output: ["Aborted."]
+
+  - id: y-stray
+    when:
+      command: "y"
+    then:
+      stderr: ["zsh: command not found: y"]
+      exit: 127
+
+  - id: n-stray
+    when:
+      command: n
+    then:
+      stderr: ["zsh: command not found: n"]
+      exit: 127
+
+  # ──────────────────────────────────────────────────────────────────
+  # Step 2 — host-side isolation checks (Terminal B)
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: echo-host-to-agent
+    when:
+      command: [echo, "Written from the host", ">", "~/workshop/sbx/host-to-agent.txt"]
+    then:
+      state: { iso.hostSaved: true }
+      files:
+        - create: "sbx/host-to-agent.txt"
+          content: "Written from the host"
+      output: []
+
+  - id: echo-host-to-agent-split
+    when:
+      command: [echo, "\"Written", "from", "the", "host\"", ">", "~/workshop/sbx/host-to-agent.txt"]
+    then:
+      state: { iso.hostSaved: true }
+      files:
+        - create: "sbx/host-to-agent.txt"
+          content: "Written from the host"
+      output: []
+
+  - id: echo-host-marker
+    when:
+      command: [echo, "This file lives in your home, not the workspace", ">", "~/workshop/host-marker.txt"]
+    then:
+      state: { iso.markerSaved: true }
+      files:
+        - create: "host-marker.txt"
+          content: "This file lives in your home, not the workspace"
+      output: []
+
+  - id: echo-host-marker-split
+    when:
+      command: [echo, "\"This", "file", "lives", "in", "your", "home,", "not", "the", "workspace\"", ">", "~/workshop/host-marker.txt"]
+    then:
+      state: { iso.markerSaved: true }
+      files:
+        - create: "host-marker.txt"
+          content: "This file lives in your home, not the workspace"
+      output: []
+
+  - id: ls-la-workspace-full
+    when:
+      command: [ls, -la]
+      state: { iso.agentToHost: true }
+    then:
+      output:
+        - "total 16"
+        - "drwxr-xr-x   4 me  staff   128 Jul 28 10:12 ."
+        - "drwxr-xr-x  20 me  staff   640 Jul 28 09:58 .."
+        - "-rw-r--r--   1 me  staff    22 Jul 28 10:12 agent-to-host.txt"
+        - "-rw-r--r--   1 me  staff    22 Jul 28 10:09 host-to-agent.txt"
+        - "-rw-r--r--   1 me  staff   108 Jul 28 09:58 README.txt"
+
+  - id: ls-la-workspace-host-file
+    when:
+      command: [ls, -la]
+      state: { iso.hostSaved: true }
+    then:
+      output:
+        - "total 8"
+        - "drwxr-xr-x   3 me  staff    96 Jul 28 10:09 ."
+        - "drwxr-xr-x  20 me  staff   640 Jul 28 09:58 .."
+        - "-rw-r--r--   1 me  staff    22 Jul 28 10:09 host-to-agent.txt"
+        - "-rw-r--r--   1 me  staff   108 Jul 28 09:58 README.txt"
+
+  - id: ls-la-workspace-clean
+    when:
+      command: [ls, -la]
+    then:
+      output:
+        - "total 4"
+        - "drwxr-xr-x   2 me  staff    64 Jul 28 09:58 ."
+        - "drwxr-xr-x  20 me  staff   640 Jul 28 09:58 .."
+        - "-rw-r--r--   1 me  staff   108 Jul 28 09:58 README.txt"
+
+  - id: cat-host-to-agent-tilde
+    when:
+      command: [cat, "~/workshop/sbx/host-to-agent.txt"]
+      state: { iso.hostSaved: true }
+    then:
+      output: ["Written from the host"]
+
+  - id: cat-agent-to-host-tilde
+    when:
+      command: [cat, "~/workshop/sbx/agent-to-host.txt"]
+      state: { iso.agentToHost: true }
+    then:
+      output: ["Written from the agent"]
+
+  - id: cat-host-marker-tilde
+    when:
+      command: [cat, "~/workshop/host-marker.txt"]
+      state: { iso.markerSaved: true }
+    then:
+      output: ["This file lives in your home, not the workspace"]
+
+  - id: rm-cleanup
+    when:
+      command: rm
+      state: { iso.cleaned: false }
+    then:
+      state: { iso.cleaned: true }
+      files:
+        - delete: "host-marker.txt"
+        - delete: "sbx/host-to-agent.txt"
+        - delete: "sbx/agent-to-host.txt"
+      output: []
+
+  - id: rm-files-again
+    when:
+      command: rm
+    then:
+      output: []
+
+  # ──────────────────────────────────────────────────────────────────
+  # Step 3 — network policy
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: policy-ls-nasa-pypi-example
+    when:
+      command: sbx policy ls
+      state: { policy.nasa: true, policy.pypi: true, policy.example: true }
+    then:
+      output:
+        - "POLICY                                 SOURCE   APPLIES TO              SUMMARY"
+        - "c1abac6c-5f39-4a37-ac68-96f09651b1fc   kit      sandbox:sandbox-alpha   network: 3 allow"
+        - "local-policy                           local    all                     network: 193 allow, 2 deny; filesystem read: 1 allow; filesystem write: 1 allow"
+
+  - id: policy-ls-nasa-pypi
+    when:
+      command: sbx policy ls
+      state: { policy.nasa: true, policy.pypi: true, policy.example: false }
+    then:
+      output:
+        - "POLICY                                 SOURCE   APPLIES TO              SUMMARY"
+        - "c1abac6c-5f39-4a37-ac68-96f09651b1fc   kit      sandbox:sandbox-alpha   network: 3 allow"
+        - "local-policy                           local    all                     network: 193 allow, 1 deny; filesystem read: 1 allow; filesystem write: 1 allow"
+
+  - id: policy-ls-nasa
+    when:
+      command: sbx policy ls
+      state: { policy.nasa: true, policy.pypi: false, policy.example: false }
+    then:
+      output:
+        - "POLICY                                 SOURCE   APPLIES TO              SUMMARY"
+        - "c1abac6c-5f39-4a37-ac68-96f09651b1fc   kit      sandbox:sandbox-alpha   network: 3 allow"
+        - "local-policy                           local    all                     network: 193 allow; filesystem read: 1 allow; filesystem write: 1 allow"
+
+  - id: policy-ls-default-with-sandbox
+    when:
+      command: sbx policy ls
+      state: { alpha.exists: true }
+    then:
+      output:
+        - "POLICY                                 SOURCE   APPLIES TO              SUMMARY"
+        - "c1abac6c-5f39-4a37-ac68-96f09651b1fc   kit      sandbox:sandbox-alpha   network: 3 allow"
+        - "local-policy                           local    all                     network: 192 allow; filesystem read: 1 allow; filesystem write: 1 allow"
+
+  - id: policy-ls-default
+    when:
+      command: sbx policy ls
+    then:
+      output:
+        - "POLICY         SOURCE   APPLIES TO   SUMMARY"
+        - "local-policy   local    all          network: 192 allow; filesystem read: 1 allow; filesystem write: 1 allow"
+
+  - id: policy-allow-nasa-dup
+    when:
+      command: sbx policy allow network nasa.gov
+      state: { policy.nasa: true }
+    then:
+      output: ["Already covered in policy local (scope: global): nasa.gov (by rule \"3fa2c8d1-77e0-42a3-a162-536ec0bceeed\")"]
+
+  - id: policy-allow-nasa
+    when:
+      command: sbx policy allow network nasa.gov
+    then:
+      state: { policy.nasa: true }
+      output: ["Rule added to policy local (scope: global): 3fa2c8d1-77e0-42a3-a162-536ec0bceeed (nasa.gov)"]
+
+  - id: policy-deny-pypi
+    when:
+      command: sbx policy deny network pypi.org
+    then:
+      state: { policy.pypi: true }
+      output: ["Rule added to policy local (scope: global): 9701dc6e-be32-488d-8dfc-586058837e46 (pypi.org)"]
+
+  - id: policy-deny-example
+    when:
+      command: sbx policy deny network example.com
+    then:
+      state: { policy.example: true }
+      output: ["Rule added to policy local (scope: global): b44e02a7-2d59-4566-9ac8-b3fc7d7214b7 (example.com)"]
+
+  - id: policy-rm-example
+    when:
+      command: sbx policy rm network
+      args: { --resource: "example.com" }
+      state: { policy.example: true }
+    then:
+      state: { policy.example: false }
+      output: ["Rule removed from policy local: resources=example.com"]
+
+  - id: policy-rm-pypi
+    when:
+      command: sbx policy rm network
+      args: { --resource: "pypi.org" }
+      state: { policy.pypi: true }
+    then:
+      state: { policy.pypi: false }
+      output: ["Rule removed from policy local: resources=pypi.org"]
+
+  - id: policy-rm-missing
+    when:
+      command: sbx policy rm network
+    then:
+      stderr: ["ERROR: remove network rule: remove-resource: rule not found"]
+      exit: 1
+
+  - id: policy-log-research
+    when:
+      command: sbx policy log sandbox-alpha
+      state: { net.phase: "research" }
+    then:
+      output:
+        - "Blocked requests:"
+        - "SANDBOX         TYPE      HOST                                     PROXY     RULE                                                                                                                REASON                                  LAST SEEN         COUNT"
+        - "sandbox-alpha   network   http-intake.logs.us5.datadoghq.com:443   forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:http-intake.logs.us5.datadoghq.com:443)   No matching allow rule (default deny)   11:11:24 28-Jul   16"
+        - "sandbox-alpha   network   www.jpl.nasa.gov:443                     forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:www.jpl.nasa.gov:443)                     No matching allow rule (default deny)   11:08:24 28-Jul   1"
+        - "sandbox-alpha   network   en.wikipedia.org:443                     forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:en.wikipedia.org:443)                     No matching allow rule (default deny)   10:51:26 28-Jul   1"
+        - "sandbox-alpha   network   wikipedia.org:443                        forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:wikipedia.org:443)                        No matching allow rule (default deny)   10:43:24 28-Jul   2"
+        - "sandbox-alpha   network   reddit.com:443                           forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:reddit.com:443)                           No matching allow rule (default deny)   10:43:24 28-Jul   2"
+        - ""
+        - "Allowed requests:"
+        - "SANDBOX         TYPE      HOST                          PROXY            RULE   REASON   LAST SEEN         COUNT"
+        - "sandbox-alpha   network   api.anthropic.com:443         forward                          11:11:40 28-Jul   40"
+        - "sandbox-alpha   network   downloads.claude.ai:443       forward-bypass                   11:10:41 28-Jul   6"
+        - "sandbox-alpha   network   github.com:443                forward-bypass                   11:08:22 28-Jul   4"
+        - "sandbox-alpha   network   nasa.gov:443                  forward-bypass                   11:06:54 28-Jul   1"
+        - "sandbox-alpha   network   pypi.org:443                  forward-bypass                   10:43:24 28-Jul   1"
+        - "sandbox-alpha   network   mcp-proxy.anthropic.com:443   forward                          10:43:18 28-Jul   22"
+
+  - id: policy-log-mcp
+    when:
+      command: sbx policy log sandbox-alpha
+      state: { net.phase: "wiki", alpha.mcp: true }
+    then:
+      output:
+        - "Blocked requests:"
+        - "SANDBOX         TYPE      HOST                                     PROXY     RULE                                                                                                                       REASON                                  LAST SEEN         COUNT"
+        - "sandbox-alpha   network   http-intake.logs.us5.datadoghq.com:443   forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:http-intake.logs.us5.datadoghq.com:443)          No matching allow rule (default deny)   11:02:50 28-Jul   12"
+        - "sandbox-alpha   network   en.wikipedia.org:443                     forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:en.wikipedia.org:443)                            No matching allow rule (default deny)   10:51:26 28-Jul   1"
+        - "sandbox-alpha   network   pypi.org:443                             forward   denied: rule \"9701dc6e-be32-488d-8dfc-586058837e46\" matched op(action=net:connect:tcp, resource=net:domain:pypi.org:443)   Denied by local rule                    10:46:54 28-Jul   2"
+        - "sandbox-alpha   network   wikipedia.org:443                        forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:wikipedia.org:443)                               No matching allow rule (default deny)   10:43:24 28-Jul   2"
+        - "sandbox-alpha   network   reddit.com:443                           forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:reddit.com:443)                                  No matching allow rule (default deny)   10:43:24 28-Jul   2"
+        - ""
+        - "Allowed requests:"
+        - "SANDBOX         TYPE      HOST                             PROXY            RULE                     REASON   LAST SEEN         COUNT"
+        - "sandbox-alpha   network   api.anthropic.com:443            forward                                            11:02:52 28-Jul   34"
+        - "sandbox-alpha   network   mcp-gateway.docker.internal:80   forward          <daemon-managed alias>            11:02:24 28-Jul   3"
+        - "sandbox-alpha   network   mcp-proxy.anthropic.com:443      forward                                            10:43:18 28-Jul   22"
+        - "sandbox-alpha   network   downloads.claude.ai:443          forward-bypass                                     11:01:24 28-Jul   5"
+        - "sandbox-alpha   network   nasa.gov:443                     forward-bypass                                     10:46:54 28-Jul   1"
+        - "sandbox-alpha   network   github.com:443                   forward-bypass                                     10:46:53 28-Jul   2"
+
+  - id: policy-log-wiki
+    when:
+      command: sbx policy log sandbox-alpha
+      state: { net.phase: "wiki" }
+    then:
+      output:
+        - "Blocked requests:"
+        - "SANDBOX         TYPE      HOST                                     PROXY     RULE                                                                                                                       REASON                                  LAST SEEN         COUNT"
+        - "sandbox-alpha   network   http-intake.logs.us5.datadoghq.com:443   forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:http-intake.logs.us5.datadoghq.com:443)          No matching allow rule (default deny)   10:47:50 28-Jul   8"
+        - "sandbox-alpha   network   en.wikipedia.org:443                     forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:en.wikipedia.org:443)                            No matching allow rule (default deny)   10:51:26 28-Jul   1"
+        - "sandbox-alpha   network   pypi.org:443                             forward   denied: rule \"9701dc6e-be32-488d-8dfc-586058837e46\" matched op(action=net:connect:tcp, resource=net:domain:pypi.org:443)   Denied by local rule                    10:46:54 28-Jul   2"
+        - "sandbox-alpha   network   wikipedia.org:443                        forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:wikipedia.org:443)                               No matching allow rule (default deny)   10:43:24 28-Jul   2"
+        - "sandbox-alpha   network   reddit.com:443                           forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:reddit.com:443)                                  No matching allow rule (default deny)   10:43:24 28-Jul   2"
+        - ""
+        - "Allowed requests:"
+        - "SANDBOX         TYPE      HOST                          PROXY            RULE   REASON   LAST SEEN         COUNT"
+        - "sandbox-alpha   network   api.anthropic.com:443         forward                          10:51:30 28-Jul   24"
+        - "sandbox-alpha   network   nasa.gov:443                  forward-bypass                   10:46:54 28-Jul   1"
+        - "sandbox-alpha   network   github.com:443                forward-bypass                   10:46:53 28-Jul   2"
+        - "sandbox-alpha   network   mcp-proxy.anthropic.com:443   forward                          10:43:18 28-Jul   22"
+        - "sandbox-alpha   network   downloads.claude.ai:443       forward-bypass                   10:41:50 28-Jul   5"
+
+  - id: policy-log-curls
+    when:
+      command: sbx policy log sandbox-alpha
+      state: { net.phase: "curls" }
+    then:
+      output:
+        - "Blocked requests:"
+        - "SANDBOX         TYPE      HOST                                     PROXY     RULE                                                                                                                REASON                                  LAST SEEN         COUNT"
+        - "sandbox-alpha   network   http-intake.logs.us5.datadoghq.com:443   forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:http-intake.logs.us5.datadoghq.com:443)   No matching allow rule (default deny)   10:44:49 28-Jul   3"
+        - "sandbox-alpha   network   nasa.gov:443                             forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:nasa.gov:443)                             No matching allow rule (default deny)   10:43:24 28-Jul   1"
+        - "sandbox-alpha   network   wikipedia.org:443                        forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:wikipedia.org:443)                        No matching allow rule (default deny)   10:43:24 28-Jul   1"
+        - "sandbox-alpha   network   reddit.com:443                           forward   no applicable policies for op(action=net:connect:tcp, resource=net:domain:reddit.com:443)                           No matching allow rule (default deny)   10:43:24 28-Jul   1"
+        - ""
+        - "Allowed requests:"
+        - "SANDBOX         TYPE      HOST                          PROXY            RULE   REASON   LAST SEEN         COUNT"
+        - "sandbox-alpha   network   api.anthropic.com:443         forward                          10:44:44 28-Jul   16"
+        - "sandbox-alpha   network   mcp-proxy.anthropic.com:443   forward                          10:43:18 28-Jul   22"
+        - "sandbox-alpha   network   pypi.org:443                  forward-bypass                   10:43:24 28-Jul   1"
+        - "sandbox-alpha   network   github.com:443                forward-bypass                   10:43:23 28-Jul   1"
+        - "sandbox-alpha   network   claude.com:443                browser-open                     10:43:01 28-Jul   1"
+        - "sandbox-alpha   network   downloads.claude.ai:443       forward-bypass                   10:41:50 28-Jul   5"
+
+  - id: policy-log-empty
+    when:
+      command: sbx policy log sandbox-alpha
+    then:
+      output: ["No policy log entries found"]
+
+  # ──────────────────────────────────────────────────────────────────
+  # Step 4 — MCP
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: export-mcp-url
+    when:
+      command: export
+    then:
+      state: { mcp.exported: true }
+      output: []
+
+  - id: daemon-stop
+    when:
+      command: sbx daemon stop
+    then:
+      output:
+        - "Stopping daemon at /Users/me/Library/Application Support/com.docker.sandboxes/sandboxes/sandboxd/sandboxd.sock..."
+        - { text: "✓ Daemon stopped successfully", delay: boot }
+
+  - id: daemon-start-exported
+    when:
+      command: sbx daemon start
+      state: { mcp.exported: true }
+    then:
+      state: { mcp.enabled: true }
+      output:
+        - { text: "Daemon started (PID: 33140, socket: /Users/me/Library/Application Support/com.docker.sandboxes/sandboxes/sandboxd/sandboxd.sock)", delay: boot }
+        - "Logs: /Users/me/Library/Application Support/com.docker.sandboxes/sandboxes/sandboxd/daemon.log"
+
+  - id: daemon-start-plain
+    when:
+      command: sbx daemon start
+    then:
+      output:
+        - { text: "Daemon started (PID: 33140, socket: /Users/me/Library/Application Support/com.docker.sandboxes/sandboxes/sandboxd/sandboxd.sock)", delay: boot }
+        - "Logs: /Users/me/Library/Application Support/com.docker.sandboxes/sandboxes/sandboxd/daemon.log"
+
+  - id: mcp-help
+    when:
+      command: sbx mcp --help
+      state: { mcp.enabled: true }
+    then:
+      output:
+        - "Register and manage MCP servers for use with sandbox sessions."
+        - ""
+        - "Usage:"
+        - "  sbx mcp [command]"
+        - ""
+        - "Available Commands:"
+        - "  add         Register an MCP server"
+        - "  auth        Authorize MCP servers"
+        - "  bundle      Manage MCP server bundles"
+        - "  inspect     Show MCP server details"
+        - "  load        Load an already-registered MCP server into a running sandbox"
+        - "  ls          List registered MCP servers"
+        - "  rm          Remove a registered MCP server"
+        - ""
+        - "Flags:"
+        - "  -h, --help   help for mcp"
+
+  - id: mcp-add-wiki
+    when:
+      command: sbx mcp add
+      args: { 0: "wiki-mcp" }
+      state: { mcp.enabled: true }
+    then:
+      state: { mcp.wikiAdded: true }
+      output:
+        - "Resolving MCP server \"wiki-mcp\"..."
+        - { text: "INFO: mcpruntime: resolving local server command", delay: short }
+        - "INFO: mcpruntime: local server command resolved"
+        - { text: "MCP server \"wiki-mcp\" registered (type: local)", delay: short }
+
+  - id: mcp-add-duck
+    when:
+      command: sbx mcp add
+      args: { 0: "duck-mcp" }
+      state: { mcp.enabled: true }
+    then:
+      state: { mcp.duckAdded: true }
+      output:
+        - "Resolving MCP server \"duck-mcp\"..."
+        - { text: "INFO: mcpruntime: resolving local server command", delay: short }
+        - "INFO: mcpruntime: local server command resolved"
+        - { text: "MCP server \"duck-mcp\" registered (type: local)", delay: short }
+
+  - id: mcp-inspect-wiki
+    when:
+      command: sbx mcp inspect wiki-mcp
+      state: { mcp.wikiAdded: true }
+    then:
+      output:
+        - "Name:      wiki-mcp"
+        - "Type:      local"
+        - "Command:   docker run -i --rm mcp/wikipedia-mcp"
+        - "Resolved:  /usr/local/bin/docker"
+
+  - id: mcp-inspect-duck
+    when:
+      command: sbx mcp inspect duck-mcp
+      state: { mcp.duckAdded: true }
+    then:
+      output:
+        - "Name:      duck-mcp"
+        - "Type:      local"
+        - "Command:   docker run -i --rm mcp/duckduckgo"
+        - "Resolved:  /usr/local/bin/docker"
+
+  - id: mcp-inspect-unknown
+    when:
+      command: sbx mcp inspect
+      state: { mcp.enabled: true }
+    then:
+      stderr: ["ERROR: mcp server not found: mcp server not found"]
+      exit: 1
+
+  - id: mcp-ls-both
+    when:
+      command: sbx mcp ls
+      state: { mcp.wikiAdded: true, mcp.duckAdded: true }
+    then:
+      output:
+        - "NAME       TYPE     URL/COMMAND"
+        - "duck-mcp   local    docker run -i --rm mcp/duckduckgo"
+        - "wiki-mcp   local    docker run -i --rm mcp/wikipedia-mcp"
+
+  - id: mcp-ls-wiki
+    when:
+      command: sbx mcp ls
+      state: { mcp.wikiAdded: true }
+    then:
+      output:
+        - "NAME       TYPE     URL/COMMAND"
+        - "wiki-mcp   local    docker run -i --rm mcp/wikipedia-mcp"
+
+  - id: mcp-ls-empty
+    when:
+      command: sbx mcp ls
+      state: { mcp.enabled: true }
+    then:
+      output: ["No MCP servers registered. Add one: sbx mcp add <name> --command <cmd>"]
+
+  - id: mcp-load-wiki-no-gateway
+    when:
+      command: sbx mcp load wiki-mcp
+      state: { mcp.wikiAdded: true, alpha.mcp: false }
+    then:
+      stderr: ["ERROR: add \"wiki-mcp\" to sandbox \"sandbox-alpha\": add MCP gateway server: request failed: 409 Conflict: no MCP gateway is running for sandbox \"sandbox-alpha\""]
+      exit: 1
+
+  - id: mcp-load-duck-no-gateway
+    when:
+      command: sbx mcp load duck-mcp
+      state: { mcp.duckAdded: true, alpha.mcp: false }
+    then:
+      stderr: ["ERROR: add \"duck-mcp\" to sandbox \"sandbox-alpha\": add MCP gateway server: request failed: 409 Conflict: no MCP gateway is running for sandbox \"sandbox-alpha\""]
+      exit: 1
+
+  - id: mcp-load-wiki-ok
+    when:
+      command: sbx mcp load wiki-mcp
+      state: { mcp.wikiAdded: true, alpha.mcp: true }
+    then:
+      output: ["MCP server \"wiki-mcp\" loaded into sandbox \"sandbox-alpha\" (live)"]
+
+  - id: mcp-load-duck-ok
+    when:
+      command: sbx mcp load duck-mcp
+      state: { mcp.duckAdded: true, alpha.mcp: true }
+    then:
+      output: ["MCP server \"duck-mcp\" loaded into sandbox \"sandbox-alpha\" (live)"]
+
+  - id: mcp-gated
+    when:
+      command: sbx mcp
+      state: { mcp.enabled: false }
+    then:
+      stderr: ["ERROR: unknown command: \"mcp\""]
+      exit: 1
+
+  # ──────────────────────────────────────────────────────────────────
+  # Step 5 — DHI / Scout
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: mkdir-research-app
+    when:
+      command: [mkdir, -p, "~/workshop/sbx/research-app"]
+    then:
+      files:
+        - mkdir: "sbx/research-app"
+      output: []
+
+  - id: docker-login-dhi
+    when:
+      command: docker login dhi.io
+    then:
+      output:
+        - "Authenticating with existing credentials... [Username: dockterdan]"
+        - ""
+        - "i Info → To login with a different account, run 'docker logout' followed by 'docker login'"
+        - ""
+        - { text: "Login Succeeded", delay: medium }
+
+  - id: sed-swap-base
+    when:
+      command: sed
+      state: { app.swapped: false }
+    then:
+      state: { app.swapped: true }
+      files:
+        - copy: "sbx/research-app/Dockerfile"
+          to: "sbx/research-app/Dockerfile.bak"
+        - replace: "sbx/research-app/Dockerfile"
+          find: "FROM python:3.14-slim"
+          with: "FROM dhi.io/python:3.14"
+      output: []
+
+  - id: sed-again
+    when:
+      command: sed
+    then:
+      output: []
+
+  - id: build-v2
+    when:
+      command: docker build
+      state: { app.swapped: true }
+    then:
+      state: { app.builtV2: true }
+      output:
+        - "[+] Building 0.0s (0/1)                                                                            docker:desktop-linux"
+        - { text: " => [internal] load build definition from Dockerfile                                                               0.0s", delay: short }
+        - " => [internal] load metadata for dhi.io/python:3.14                                                                0.4s"
+        - { text: " => [1/3] FROM dhi.io/python:3.14                                                                                   1.2s", delay: build }
+        - " => [2/3] WORKDIR /app                                                                                              0.1s"
+        - { text: " => [3/3] COPY app.py .                                                                                             0.1s", delay: short }
+        - { text: " => exporting to image                                                                                              0.1s", delay: build }
+        - " => => writing image sha256:cc23ed01d0691bcafbe79e0f332dd1f7455d894c62e709cfa01e546e21dd7ef3                       0.0s"
+        - " => => naming to docker.io/library/research-app:v2                                                                 0.0s"
+        - "[+] Building 8.4s (8/8) FINISHED                                                                   docker:desktop-linux"
+
+  - id: build-v1
+    when:
+      command: docker build
+      state: { app.appWritten: true }
+    then:
+      state: { app.builtV1: true }
+      output:
+        - "[+] Building 0.0s (0/1)                                                                            docker:desktop-linux"
+        - { text: " => [internal] load build definition from Dockerfile                                                               0.0s", delay: short }
+        - " => [internal] load metadata for docker.io/library/python:3.14-slim                                                0.3s"
+        - { text: " => [1/3] FROM docker.io/library/python:3.14-slim                                                                   0.9s", delay: build }
+        - " => [2/3] WORKDIR /app                                                                                              0.1s"
+        - { text: " => [3/3] COPY app.py .                                                                                             0.1s", delay: short }
+        - { text: " => exporting to image                                                                                              0.1s", delay: build }
+        - " => => writing image sha256:3ab201f359e19d7718280f034ab855d716f6f68281fd03a144f55c4c2f94118e                       0.0s"
+        - " => => naming to docker.io/library/research-app:v1                                                                 0.0s"
+        - "[+] Building 11.2s (8/8) FINISHED                                                                  docker:desktop-linux"
+
+  - id: build-no-app
+    when:
+      command: docker build
+    then:
+      output:
+        - "[+] Building 0.3s (7/7) FINISHED                                                                   docker:desktop-linux"
+        - " => [internal] load build definition from Dockerfile                                                               0.0s"
+        - " => [1/3] FROM docker.io/library/python:3.14-slim                                                                   0.1s"
+        - " => CACHED [2/3] WORKDIR /app                                                                                       0.0s"
+        - { text: " => ERROR [3/3] COPY app.py .                                                                                       0.0s", delay: short }
+        - "------"
+        - " > [3/3] COPY app.py .:"
+        - "Dockerfile:3"
+        - "--------------------"
+        - "   1 |     FROM python:3.14-slim"
+        - "   2 |     WORKDIR /app"
+        - "   3 | >>> COPY app.py ."
+        - "   4 |     EXPOSE 8000"
+        - "   5 |     CMD [\"python\", \"app.py\"]"
+      stderr:
+        - "ERROR: failed to build: failed to solve: failed to compute cache key: \"/app.py\": not found"
+      exit: 1
+
+  - id: docker-run-app
+    when:
+      command: docker run
+      state: { app.running: false, app.builtV1: true }
+    then:
+      state: { app.running: true }
+      output: ["e7c9a41b2d8f3a5c6b0e9d1f4a7c2b5e8d3f6a9c1b4e7d0a3c6f9b2e5d8a1c4"]
+
+  - id: docker-run-conflict
+    when:
+      command: docker run
+      state: { app.running: true }
+    then:
+      stderr: ["docker: Error response from daemon: Conflict. The container name \"/research-app\" is already in use. You have to remove (or rename) that container to be able to reuse that name."]
+      exit: 125
+
+  - id: docker-run-no-image
+    when:
+      command: docker run
+    then:
+      stderr: ["docker: Error response from daemon: No such image: research-app:v1"]
+      exit: 125
+
+  - id: docker-ps-running
+    when:
+      command: docker ps
+      state: { app.running: true }
+    then:
+      output:
+        - "CONTAINER ID   IMAGE             COMMAND           CREATED         STATUS         PORTS                    NAMES"
+        - "e7c9a41b2d8f   research-app:v1   \"python app.py\"   5 seconds ago   Up 5 seconds   0.0.0.0:8000->8000/tcp   research-app"
+
+  - id: docker-ps-empty
+    when:
+      command: docker ps
+    then:
+      output: ["CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES"]
+
+  - id: curl-dashboard
+    when:
+      command: curl
+      state: { app.running: true }
+    then:
+      output:
+        - "<!doctype html>"
+        - "<html lang=\"en\">"
+        - "<head>"
+        - "  <meta charset=\"utf-8\">"
+        - "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        - "  <title>Code in Orbit</title>"
+        - "  <style>:root{--bg:#f7f7f5;--ink:#1c1c1a;--muted:#6b6b66;--accent:#0b3d91;...</style>"
+        - "</head>"
+
+  - id: curl-refused
+    when:
+      command: curl
+    then:
+      stderr: ["curl: (7) Failed to connect to localhost port 8000 after 3 ms: Connection refused"]
+      exit: 7
+
+  - id: docker-stop-app
+    when:
+      command: docker stop research-app
+      state: { app.running: true }
+    then:
+      state: { app.running: false }
+      output: ["research-app"]
+
+  - id: scout-quickview-v1
+    when:
+      command: docker scout quickview
+      args: { 0: "research-app:v1" }
+      state: { app.builtV1: true }
+    then:
+      output:
+        - { text: "    ✓ SBOM of image already cached, 124 packages indexed", delay: scan }
+        - ""
+        - "    i Base image was auto-detected. To get more accurate results, build images with max-mode provenance attestations."
+        - ""
+        - " Target             │  research-app:v1  │    1C     2H     3M    28L     7?"
+        - "   digest           │  3ab201f359e1     │"
+        - { text: " Base image         │  python:3-slim    │    1C     2H     3M    28L     7?", delay: medium }
+        - " Updated base image │  python:alpine    │    0C     0H     0M     0L"
+        - "                    │                   │    -1     -2     -3    -28     -7"
+        - ""
+        - "What's next:"
+        - "    View vulnerabilities → docker scout cves research-app:v1"
+        - "    View base image update recommendations → docker scout recommendations research-app:v1"
+
+  - id: scout-quickview-v2
+    when:
+      command: docker scout quickview
+      args: { 0: "research-app:v2" }
+      state: { app.builtV2: true }
+    then:
+      output:
+        - { text: "    ✓ SBOM of image already cached, 82 packages indexed", delay: scan }
+        - ""
+        - " Target   │  research-app:v2  │    0C     0H     3M    15L    18?"
+        - { text: "   digest │  cc23ed01d069     │", delay: medium }
+        - ""
+        - "What's next:"
+        - "    View vulnerabilities → docker scout cves research-app:v2"
+
+  - id: scout-quickview-missing
+    when:
+      command: docker scout quickview
+    then:
+      stderr: ["ERROR: image not found locally: research-app — build it first"]
+      exit: 1
+
+  - id: scout-cves-v1
+    when:
+      command: docker scout cves
+      args: { 0: "research-app:v1" }
+      state: { app.builtV1: true }
+    then:
+      output:
+        - { text: "    ✓ SBOM of image already cached, 124 packages indexed", delay: scan }
+        - "    ✗ Detected 11 vulnerable packages with a total of 41 vulnerabilities"
+        - ""
+        - "## Overview"
+        - ""
+        - "                   │           Analyzed Image"
+        - "───────────────────┼────────────────────────────────────"
+        - " Target            │  research-app:v1"
+        - "   digest          │  3ab201f359e1"
+        - "   platform        │ linux/arm64"
+        - "   vulnerabilities │    1C     2H     3M    28L     7?"
+        - "   size            │ 50 MB"
+        - "   packages        │ 124"
+        - ""
+        - "## Packages and Vulnerabilities"
+        - ""
+        - { text: "   1C     2H     2M     2L     4?  perl 5.40.1-6", delay: medium }
+        - "pkg:deb/debian/perl@5.40.1-6?os_distro=trixie&os_name=debian&os_version=13"
+        - ""
+        - "    ✗ CRITICAL CVE-2026-12087"
+        - "      Affected range : >0"
+        - "      Fixed version  : not fixed"
+        - ""
+        - "    ✗ HIGH CVE-2026-48959"
+        - "      Affected range : >0"
+        - "      Fixed version  : not fixed"
+        - ""
+        - "    ... (list continues: press q in the real CLI pager)"
+
+  - id: scout-cves-v2
+    when:
+      command: docker scout cves
+      args: { 0: "research-app:v2" }
+      state: { app.builtV2: true }
+    then:
+      output:
+        - { text: "    ✓ SBOM of image already cached, 82 packages indexed", delay: scan }
+        - "    ✗ Detected 6 vulnerable packages with a total of 36 vulnerabilities"
+        - ""
+        - "## Overview"
+        - ""
+        - "                   │           Analyzed Image"
+        - "───────────────────┼────────────────────────────────────"
+        - " Target            │  research-app:v2"
+        - "   digest          │  cc23ed01d069"
+        - "   platform        │ linux/arm64"
+        - "   vulnerabilities │    0C     0H     3M    15L    18?"
+        - "   size            │ 37 MB"
+        - "   packages        │ 82"
+        - ""
+        - "## Packages and Vulnerabilities"
+        - ""
+        - { text: "   0C     0H     2M     0L     3?  python-3.14 3.14.6-5", delay: medium }
+        - ""
+        - "    ✗ MEDIUM CVE-2026-5713"
+        - "      Affected range : >=3.14.0"
+        - "      Fixed version  : not fixed"
+        - ""
+        - "    ... (no criticals, no highs anywhere in this image)"
+
+  - id: scout-compare
+    when:
+      command: docker scout compare
+      state: { app.builtV2: true }
+    then:
+      output:
+        - "    ! 'docker scout compare' is experimental and its behaviour might change in the future"
+        - { text: "    ✓ SBOM of image already cached, 82 packages indexed", delay: scan }
+        - { text: "    ✓ SBOM of image already cached, 124 packages indexed", delay: scan }
+        - ""
+        - "  ## Overview"
+        - ""
+        - "                     │           Analyzed Image           │          Comparison Image"
+        - "  ───────────────────┼────────────────────────────────────┼────────────────────────────────────"
+        - "   Target            │  research-app:v2                   │  research-app:v1"
+        - "     digest          │  cc23ed01d069                      │  3ab201f359e1"
+        - "     platform        │ linux/arm64                        │ linux/arm64"
+        - { text: "     vulnerabilities │    0C     0H     3M    15L    18?  │    1C     2H     3M    28L     7?", delay: medium }
+        - "                     │    -1     -2           -13    +11  │"
+        - "     size            │ 37 MB (-13 MB)                     │ 50 MB"
+        - "     packages        │ 82 (-42)                           │ 124"
+        - ""
+        - "  ## Labels"
+        - ""
+        - "    + com.docker.dhi.compliance=cis"
+        - "    + com.docker.dhi.date.end-of-life=2030-10-31"
+        - "    + com.docker.dhi.definition=image/python/debian-13/3.14"
+        - "    + com.docker.dhi.name=dhi/python"
+        - "    + com.docker.dhi.variant=runtime"
+        - "    + com.docker.dhi.version=3.14.6-debian13"
+        - ""
+        - "  ## Packages and Vulnerabilities"
+        - ""
+        - "    +   38 packages added"
+        - "    -   81 packages removed"
+        - "    ⎌   42 packages changed (↑ 42 upgraded, ↓ 0 downgraded)"
+        - "         1 packages unchanged"
+        - ""
+        - "    + 19 vulnerabilities added"
+        - "    - 24 vulnerabilities removed"
+
+  # ──────────────────────────────────────────────────────────────────
+  # Step 6 — Kits
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: mkdir-kit-tree
+    when:
+      command: [mkdir, -p, "~/workshop/kits/docker-review/files/workspace/.claude/skills/docker-review"]
+    then:
+      files:
+        - mkdir: "kits/docker-review/files/workspace/.claude/skills/docker-review"
+      output: []
+
+  - id: kit-validate
+    when:
+      command: sbx kit validate
+    then:
+      output: ["VALID: /Users/me/workshop/kits/docker-review/ (directory)"]
+
+  - id: ls-kit-skill-injected
+    when:
+      command: [ls, -la, "~/workshop/sbx/.claude/skills/docker-review/"]
+      state: { kit.sandboxExists: true }
+    then:
+      output:
+        - "total 8"
+        - "drwxr-xr-x@ 3 me  staff   96 Jul 28 11:05 ."
+        - "drwxr-xr-x@ 3 me  staff   96 Jul 28 11:05 .."
+        - "-rw-r--r--@ 1 me  staff  416 Jul 28 11:05 SKILL.md"
+
+  - id: ls-kit-skill-missing
+    when:
+      command: [ls, -la, "~/workshop/sbx/.claude/skills/docker-review/"]
+    then:
+      stderr: ["ls: /Users/me/workshop/sbx/.claude/skills/docker-review/: No such file or directory"]
+      exit: 1
+
+  # ──────────────────────────────────────────────────────────────────
+  # Everyday shell commands (so going off-script doesn't error)
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: clear
+    when:
+      command: clear
+    then:
+      output: []
+
+  - id: cd-noop
+    when:
+      command: cd
+    then:
+      output: []
+
+  - id: pwd
+    when:
+      command: pwd
+    then:
+      output: ["/Users/me/workshop"]
+
+  - id: whoami-host
+    when:
+      command: whoami
+    then:
+      output: ["me"]
+
+  - id: date
+    when:
+      command: date
+    then:
+      output: ["Tue Jul 28 10:12:04 PDT 2026"]
+
+  - id: echo-generic
+    when:
+      command: echo
+      args: { 0: { any: true } }
+    then:
+      output: ["{{ args.0 }}"]
+
+  - id: echo-empty
+    when:
+      command: echo
+    then:
+      output: [""]
+
+  - id: sbx-run-help
+    when:
+      command: sbx run --help
+    then:
+      output:
+        - "Run an agent in a sandbox, creating the sandbox if it does not already exist."
+        - ""
+        - "The first positional argument is the agent to run. To re-attach to an existing"
+        - "sandbox by name, use --name; the agent positional is optional when the named"
+        - "sandbox already exists and is read from its spec."
+        - ""
+        - "Available agents: claude, claude-bedrock, codex, copilot, cursor, docker-agent, droid, gemini, kiro, opencode, shell"
+        - ""
+        - "Usage:"
+        - "  sbx run [flags] [AGENT] [PATH...] [-- AGENT_ARGS...]"
+        - ""
+        - "Flags:"
+        - "      --clone                Run the agent on a private in-container clone of the host Git repository"
+        - "      --cpus int             Number of CPUs to allocate to the sandbox (0 = auto)"
+        - "      --kit strings          (Experimental) Kit reference (directory, ZIP, or OCI)"
+        - "  -m, --memory string        Memory limit in binary units (e.g., 1024m, 8g)"
+        - "      --name string          Name for the sandbox (default: <agent>-<workdir>)"
+        - "      --static-mcp strings   MCP server names for the sandbox's fixed (static) MCP set"
+        - "  -t, --template string      Container image to use for the sandbox"
+
+  - id: sbx-help
+    when:
+      command: sbx --help
+    then:
+      output:
+        - "Docker Sandboxes creates isolated sandbox environments for AI agents, powered by Docker."
+        - ""
+        - "Run without a command to launch interactive mode, or pass a command for CLI usage."
+        - ""
+        - "Usage:"
+        - "  sbx"
+        - "  sbx [command]"
+        - ""
+        - "Available Commands:"
+        - "  completion  Generate the autocompletion script for the specified shell"
+        - "  cp          Copy files or directories between a sandbox and the host"
+        - "  create      Create a sandbox for an agent"
+        - "  daemon      Manage sandboxd daemon"
+        - "  diagnose    Diagnose common issues with your sbx installation"
+        - "  exec        Execute a command inside a sandbox"
+        - "  help        Help about any command"
+        - "  kit         (Experimental) Manage kit artifacts"
+        - "  login       Sign in to Docker"
+        - "  logout      Stop all running sandboxes and sign out of Docker"
+        - "  ls          List sandboxes"
+        - "  policy      Manage sandbox policies"
+        - "  ports       Manage sandbox port publishing"
+        - "  reset       Reset all sandboxes and clean up state"
+        - "  rm          Remove one or more sandboxes"
+        - "  run         Run an agent in a sandbox"
+        - "  secret      Manage stored secrets"
+        - "  setup       (Experimental) Detect host configuration and prepare Docker Sandboxes"
+        - "  ssh         Configure SSH access to sandboxes (experimental)"
+        - "  stop        Stop one or more sandboxes without removing them"
+        - "  template    Manage sandbox templates"
+        - "  tui         Open the interactive TUI dashboard"
+        - "  version     Show Docker Sandboxes version information"
+        - ""
+        - "Flags:"
+        - "  -D, --debug   Enable debug logging"
+        - "  -h, --help    help for sbx"
+        - ""
+        - "Use \"sbx [command] --help\" for more information about a command."
+
+  - id: policy-allow-help
+    when:
+      command: sbx policy allow network --help
+    then:
+      output:
+        - "Allow sandbox network access to the specified hosts."
+        - ""
+        - "RESOURCES is a comma-separated list of hostnames, domains, or IP addresses."
+        - "Supports exact domains (example.com), wildcard subdomains (*.example.com),"
+        - "and optional port suffixes (example.com:443). Use \"**\" to allow all hosts."
+        - ""
+        - "The rule applies globally to all sandboxes by default. Use --sandbox to add"
+        - "the rule to policy \"local\" scoped to a single sandbox instead."
+        - ""
+        - "Usage:"
+        - "  sbx policy allow network [--sandbox SANDBOX] RESOURCES [flags]"
+
+  # A real, working reset — mirrors `sbx reset` semantics: sandboxes, policies,
+  # secrets, and sign-in are wiped; workspace files and docker images survive
+  # (exactly like the real CLI). Confirm with y, like rm.
+  - id: sbx-reset
+    when:
+      command: sbx reset
+    then:
+      state: { rm.pending: "reset" }
+      output:
+        - "⚠️  WARNING: This will permanently delete ALL sandboxes and their data!"
+        - ""
+        - "This operation will:"
+        - "  • Stop all running sandboxes"
+        - "  • Delete all sandbox state directories"
+        - "  • Clear image cache"
+        - "  • Remove all policies"
+        - "  • Sign out of Docker Sandboxes"
+        - "  • Delete all stored secrets"
+        - "  • Any pending work in agents will be lost"
+        - ""
+        - "Are you sure you want to continue? (y/N): ▊"
+
+  # Catch-all for unknown sbx subcommands — keep LAST among sbx scenarios.
+  - id: sbx-unknown
+    when:
+      command: sbx
+    then:
+      stderr: ["ERROR: unknown command"]
+      exit: 1
+
+  # ──────────────────────────────────────────────────────────────────
+  # Agent scenarios — Step 1
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: agent-uname
+    when:
+      agent: true
+      promptContains: [uname]
+    then:
+      output:
+        - "● Bash(uname -a; whoami; pwd)"
+        - { text: "  ⎿  Linux sandbox-alpha 7.0.12 #1 SMP PREEMPT Wed Jul 8 23:10:49 UTC 2026 aarch64 GNU/Linux", delay: long }
+        - "     agent"
+        - "     /Users/me/workshop/sbx"
+        - ""
+        - "● Here's what I see:"
+        - "  - uname -a — Linux kernel 7.0.12 on aarch64. The hostname is sandbox-alpha:"
+        - "    this machine IS the sandbox, with its own kernel — not your host's."
+        - "  - whoami — I'm running as agent, an unprivileged user that only exists in here."
+        - "  - pwd — my working directory is your workspace, the one directory of yours"
+        - "    that exists from where I'm standing."
+        - "  One mismatch worth flagging: the path looks like a macOS layout (/Users/...),"
+        - "  but I'm inside a Linux ARM64 VM — your host's directory is just mounted"
+        - "  here at the same path."
+
+  # ──────────────────────────────────────────────────────────────────
+  # Agent scenarios — Step 2
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: agent-cat-host-file
+    when:
+      agent: true
+      promptContains: [host-to-agent]
+      state: { iso.hostSaved: true }
+    then:
+      output:
+        - "● Bash(cat host-to-agent.txt)"
+        - { text: "  ⎿  Written from the host", delay: long }
+        - ""
+        - "● The file host-to-agent.txt contains a single line: \"Written from the host\"."
+        - "  It's right here in my workspace — whatever you write on the host side"
+        - "  appears for me instantly. Same directory, mounted into the VM."
+
+  - id: agent-cat-host-file-missing
+    when:
+      agent: true
+      promptContains: [host-to-agent]
+    then:
+      output:
+        - "● Bash(cat host-to-agent.txt)"
+        - { text: "  ⎿  cat: host-to-agent.txt: No such file or directory", delay: long }
+        - ""
+        - "● Bash(ls -la; find / -name \"host-to-agent.txt\" -not -path \"*/proc/*\" 2>/dev/null)"
+        - { text: "  ⎿  (no matches)", delay: long }
+        - ""
+        - "● There's no host-to-agent.txt — anywhere. My workspace doesn't contain it,"
+        - "  and a filesystem-wide find returned nothing. Did you create it on the"
+        - "  host side yet? (Step 2.1, Terminal B.)"
+
+  - id: agent-write-host-file
+    when:
+      agent: true
+      promptContains: [agent-to-host]
+    then:
+      state: { iso.agentToHost: true }
+      files:
+        - create: "sbx/agent-to-host.txt"
+          content: "Written from the agent"
+      output:
+        - "● Write(agent-to-host.txt)"
+        - { text: "  ⎿  Wrote 1 line to agent-to-host.txt", delay: long }
+        - "       1  Written from the agent"
+        - ""
+        - "● Done — agent-to-host.txt is in the workspace. Check it from your side:"
+        - "  it's already visible at ~/workshop/sbx on your host."
+
+  - id: agent-host-marker
+    when:
+      agent: true
+      promptContains: [host-marker]
+    then:
+      output:
+        - "● Bash(cat ~/workshop/host-marker.txt; cat /Users/me/workshop/host-marker.txt)"
+        - { text: "  ⎿  cat: /home/agent/workshop/host-marker.txt: No such file or directory (exit 1)", delay: long }
+        - "     cat: /Users/me/workshop/host-marker.txt: No such file or directory (exit 1)"
+        - ""
+        - "● Here's exactly what happened — both reads failed, with an important detail:"
+        - "  - Note that ~ expanded to /home/agent, not /Users/me. Inside this sandbox"
+        - "    my home directory is /home/agent, so ~/workshop/... points at a path"
+        - "    that doesn't exist here."
+        - "  - The absolute /Users/me path doesn't resolve either: your /Users tree"
+        - "    isn't mounted in my filesystem at all, apart from the workspace itself."
+        - "  The file sits one directory above the workspace, and from in here it"
+        - "  may as well not exist. That's not a permissions error — there's no mount."
+
+  - id: agent-env-secret
+    when:
+      agent: true
+      promptContains: [anthropic_api_key]
+    then:
+      output:
+        - "● Bash(echo \"ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY\"; env | grep -i anthropic)"
+        - { text: "  ⎿  ANTHROPIC_API_KEY=", delay: long }
+        - "     (grep matched nothing)"
+        - ""
+        - "● The echo printed an empty value and grep found nothing. There is no"
+        - "  Anthropic key in my environment — yet I'm answering you through the"
+        - "  Anthropic API right now. Auth for this sandbox is configured in API-key"
+        - "  mode: the actual secret is held outside the sandbox and injected by the"
+        - "  proxy at the network level. I can use it; I can never read it."
+
+  # ──────────────────────────────────────────────────────────────────
+  # Agent scenarios — Step 3
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: agent-five-curls-first
+    when:
+      agent: true
+      promptContains: [curl, reddit]
+      state: { net.phase: "" }
+    then:
+      state: { net.phase: "curls" }
+      output:
+        - "● Bash(curl -s https://github.com -o /dev/null -w \"github.com: %{http_code} (%{size_download} bytes)\\n\" && curl -s https://pypi.org ...)"
+        - { text: "  ⎿  github.com: 200 (591919 bytes)", delay: long }
+        - { text: "     pypi.org: 200 (22848 bytes)", delay: short }
+        - { text: "     reddit.com: 403 (117 bytes)", delay: short }
+        - { text: "     wikipedia.org: 403 (120 bytes)", delay: short }
+        - { text: "     nasa.gov: 403 (115 bytes)", delay: short }
+        - ""
+        - "● Here's what I found:"
+        - ""
+        - "  ┌───────────────┬─────────────────────────┐"
+        - "  │ Site          │ Result                  │"
+        - "  ├───────────────┼─────────────────────────┤"
+        - "  │ github.com    │ ✅ 200 (591,919 bytes)  │"
+        - "  │ pypi.org      │ ✅ 200 (22,848 bytes)   │"
+        - "  │ reddit.com    │ ⛔ 403 (117 bytes)      │"
+        - "  │ wikipedia.org │ ⛔ 403 (120 bytes)      │"
+        - "  │ nasa.gov      │ ⛔ 403 (115 bytes)      │"
+        - "  └───────────────┴─────────────────────────┘"
+        - ""
+        - "● github.com and pypi.org are on the sandbox's network allow-list, so they"
+        - "  came back fine. The other three returned 403 with tiny 115–120 byte"
+        - "  bodies — that's the sandbox firewall's block message, not a response"
+        - "  from those sites. They're denied by the outbound network policy."
+
+  - id: agent-five-curls
+    when:
+      agent: true
+      promptContains: [curl, reddit]
+    then:
+      output:
+        - "● Bash(curl -s https://github.com ... pypi.org ... reddit.com ... wikipedia.org ... nasa.gov)"
+        - { text: "  ⎿  github.com: 200 (591919 bytes)", delay: long }
+        - "     pypi.org: 200 (22848 bytes)"
+        - "     reddit.com: 403 (117 bytes)"
+        - "     wikipedia.org: 403 (120 bytes)"
+        - "     nasa.gov: 403 (115 bytes)"
+        - ""
+        - "● Same result as before: the allow-listed hosts respond, the rest get the"
+        - "  firewall's tiny 403 block page at the boundary."
+
+  - id: agent-pypi-verify
+    when:
+      agent: true
+      promptContains: [pip install]
+    then:
+      output:
+        - "● Bash(curl -s https://pypi.org -o /dev/null -w \"pypi.org: %{http_code} (%{size_download} bytes)\\n\")"
+        - { text: "  ⎿  pypi.org: 403 (171 bytes)", delay: long }
+        - ""
+        - "● Bash(pip install requests 2>&1 | tail -3)"
+        - { text: "  ⎿  ERROR: Could not find a version that satisfies the requirement requests", delay: medium }
+        - "     ERROR: No matching distribution found for requests"
+        - ""
+        - "● pypi.org refuses me now — this time with a slightly different block page"
+        - "  (a deny *rule*, not just \"not on the list\"). And pip fails the honest"
+        - "  way: it simply can't see the package index. My tools work exactly as far"
+        - "  as the network policy lets them, and not one request further."
+
+  # ──────────────────────────────────────────────────────────────────
+  # Agent scenarios — Step 4
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: agent-wiki-baseline-first
+    when:
+      agent: true
+      promptContains: [rest_v1]
+      state: { net.phase: "curls" }
+    then:
+      state: { net.phase: "wiki" }
+      output:
+        - "● Bash(curl -sS -i --max-time 30 'https://en.wikipedia.org/api/rest_v1/page/summary/Artemis_program' 2>&1 | head -60)"
+        - { text: "  ⎿  HTTP/2 403", delay: long }
+        - "     (empty body — 0 bytes)"
+        - ""
+        - "● The request was refused before it left the machine: status 403, no body."
+        - "  en.wikipedia.org isn't on any allow list here. I do have my built-in web"
+        - "  search — it rides my own API connection, which is allowed — but the"
+        - "  direct fetch you asked about is blocked at the network layer."
+
+  - id: agent-wiki-baseline
+    when:
+      agent: true
+      promptContains: [rest_v1]
+    then:
+      output:
+        - "● Bash(curl -sS -i --max-time 30 'https://en.wikipedia.org/api/rest_v1/page/summary/Artemis_program' 2>&1 | head -60)"
+        - { text: "  ⎿  HTTP/2 403", delay: long }
+        - "     (empty body — 0 bytes)"
+        - ""
+        - "● Still blocked at the network boundary — same 403, same empty body."
+
+  - id: agent-artemis-tools
+    when:
+      agent: true
+      promptContains: [artemis, which tools]
+      state: { alpha.mcp: true, mcp.wikiAdded: true }
+    then:
+      mcp:
+        - tool: "wiki-mcp.get_summary"
+          arguments:
+            title: "Artemis program"
+          result: |
+            Artemis is NASA's program to return humans to the Moon as a stepping
+            stone to Mars, built on the Space Launch System, the Orion capsule,
+            and commercial Human Landing Systems. Artemis I flew uncrewed around
+            the Moon in 2022; Artemis II, the first crewed mission, launched on
+            April 1, 2026 and returned its four astronauts safely after a ~10-day
+            lunar flyby. The Artemis Accords have 60+ signatory nations.
+        - tool: "duck-mcp.search"
+          arguments:
+            query: "NASA Artemis program latest news"
+          result: |
+            1. "NASA Welcomes Record-Setting Artemis II Moonfarers Back to Earth" — nasa.gov
+            2. "NASA Outlines Preliminary Artemis III Mission Plans" — nasa.gov
+            3. "NASA Marches Toward Artemis III Mission in 2027, Names Crew Members" — nasa.gov
+      output:
+        - "● I have MCP tools for this — let me use both, as asked."
+        - ""
+        - "● Background (via wiki-mcp → get_summary): Artemis is NASA's program to"
+        - "  return humans to the Moon, built on SLS, Orion, and commercial landers."
+        - "  Artemis I flew uncrewed in 2022; Artemis II — the first crewed mission —"
+        - "  flew its four astronauts around the Moon this April and came home safely."
+        - ""
+        - "● Recent news (via duck-mcp → search): the program was restructured in"
+        - "  February — Artemis III becomes an Earth-orbit rendezvous-and-docking"
+        - "  test targeted for 2027, and the first crewed lunar landing shifts to"
+        - "  Artemis IV, planned by 2028. The Artemis III crew was named June 9:"
+        - "  Bresnik, Parmitano (ESA's first Artemis assignment), and Rubio."
+        - ""
+        - "● Tools I used: wiki-mcp (get_summary) for stable background, duck-mcp"
+        - "  (search) for the recent items — as you specified. Earlier my direct"
+        - "  fetch to en.wikipedia.org was blocked by network policy; these MCP"
+        - "  servers run on your host, so the lookups happened outside my sandbox's"
+        - "  network entirely. One caveat: dates like the 2028 landing are NASA"
+        - "  targets, and targets slip."
+
+  - id: agent-artemis-no-tools
+    when:
+      agent: true
+      promptContains: [artemis, which tools]
+    then:
+      output:
+        - "● Bash(curl -sS https://www.nasa.gov/artemis 2>&1 | head -5)"
+        - { text: "  ⎿  403 (blocked by network policy)", delay: long }
+        - ""
+        - "● I don't have MCP tools in this sandbox, and direct fetches to reference"
+        - "  sites are blocked by policy. I could answer from my built-in knowledge"
+        - "  and web search, but for the tool-driven version of this exercise, attach"
+        - "  the MCP servers first — this sandbox needs an MCP gateway (see 4.3)."
+
+  # ──────────────────────────────────────────────────────────────────
+  # Agent scenarios — Step 5
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: agent-build-dashboard
+    when:
+      agent: true
+      promptContains: [research-app, dashboard]
+      state: { app.appWritten: false }
+    then:
+      state: { app.appWritten: true, net.phase: "research" }
+      files:
+        - create: "sbx/research-app/app.py"
+          content: |
+            """Code in Orbit — a small dashboard.
+
+            An unexpected thread: open-source projects hosted on GitHub are not merely
+            "used in space" in the abstract. The *exact versions* of code that ~12,000
+            developers contributed to flew aboard NASA's Ingenuity Mars Helicopter, and
+            the same open-source flight framework now runs on active missions bound for
+            the Moon and Jupiter. GitHub even minted a profile badge for those
+            contributors. This dashboard connects the two threads: the repositories, and
+            the missions their code is riding on.
+
+            Stdlib only. Serves a single self-contained HTML page on 0.0.0.0:8000.
+            All research data is embedded inline below (see SOURCES for provenance).
+            """
+
+            from http.server import HTTPServer, BaseHTTPRequestHandler
+            from html import escape
+
+            # --- Research data (embedded inline) -------------------------------------
+
+            # The connecting fact between the two threads.
+            CONNECTION = {
+                "headline": "The code you starred is on another planet",
+                "body": (
+                    "When NASA's Ingenuity helicopter made the first powered flight on "
+                    "another world in April 2021, its navigation computer was running an "
+                    "embedded Linux distribution, with flight software written in C++ on "
+                    "JPL's open-source F Prime framework and ground tooling built on the "
+                    "Python ecosystem. GitHub worked with JPL to identify the exact "
+                    "versions of open-source projects that flew, and placed a "
+                    "\"Mars 2020 Helicopter Contributor\" badge on the profile of every "
+                    "developer who had contributed to them. The same F Prime framework now "
+                    "flies on active missions: the CADRE lunar rovers and the Europa "
+                    "Clipper spacecraft cruising toward Jupiter."
+                ),
+                "stat_number": "~12,000",
+                "stat_label": "developers awarded the Mars Helicopter Contributor badge",
+            }
+
+            # Thread one: open-source projects on GitHub.
+            PROJECTS = [
+                {
+                    "name": "nasa/fprime (F Prime)",
+                    "lang": "C++",
+                    "license": "Apache-2.0",
+                    "stars": "11.6k",
+                    "blurb": (
+                        "Component-driven flight software framework from JPL for CubeSats, "
+                        "SmallSats, instruments and deployables. Provides commanding, "
+                        "telemetry, parameters and sequencing out of the box. v4.0.0 "
+                        "released August 2025; selected for NASA's Open-Source Tools, "
+                        "Frameworks and Libraries award."
+                    ),
+                    "flies_on": ["Ingenuity", "CADRE lunar rovers", "Europa Clipper"],
+                },
+                {
+                    "name": "nasa/openmct (Open MCT)",
+                    "lang": "JavaScript",
+                    "license": "Apache-2.0",
+                    "stars": "13.1k",
+                    "blurb": (
+                        "Web-based mission control framework from NASA Ames for visualizing "
+                        "telemetry on desktop and mobile. Used for spacecraft data analysis "
+                        "and for planning and operating experimental rover systems."
+                    ),
+                    "flies_on": ["Spacecraft data analysis", "Experimental rovers"],
+                },
+                {
+                    "name": "torvalds/linux + scipy/scipy",
+                    "lang": "C / Python",
+                    "license": "GPL-2.0 / BSD-3",
+                    "stars": "180k+ / 13k+",
+                    "blurb": (
+                        "Ingenuity ran an embedded Linux distribution on its navigation "
+                        "computer, and the SciPy/Python stack drove flight modeling and "
+                        "data processing on the ground. Both were on GitHub's badge list "
+                        "of projects whose code flew to Mars."
+                    ),
+                    "flies_on": ["Ingenuity (navigation + ground systems)"],
+                },
+            ]
+
+            # Thread two: space missions riding on that code.
+            MISSIONS = [
+                {
+                    "name": "Ingenuity",
+                    "status": "Retired Jan 2024",
+                    "status_kind": "past",
+                    "target": "Mars",
+                    "blurb": (
+                        "First powered, controlled flight on another planet (April 2021). "
+                        "Ran embedded Linux and F Prime; the mission that triggered the "
+                        "GitHub contributor badge. Flew 72 times over three years."
+                    ),
+                    "uses": ["Linux", "F Prime", "SciPy / Python"],
+                },
+                {
+                    "name": "CADRE",
+                    "status": "Active",
+                    "status_kind": "active",
+                    "target": "Moon",
+                    "blurb": (
+                        "Cooperative Autonomous Distributed Robotic Exploration: a team of "
+                        "shoebox-sized rovers demonstrating autonomous multi-robot "
+                        "operation on the lunar surface. Flight software built on F Prime."
+                    ),
+                    "uses": ["F Prime"],
+                },
+                {
+                    "name": "Europa Clipper",
+                    "status": "Active (cruise)",
+                    "status_kind": "active",
+                    "target": "Jupiter / Europa",
+                    "blurb": (
+                        "Launched October 2024, cruising toward Jupiter's ocean moon "
+                        "Europa to assess its habitability. Among the missions that have "
+                        "deployed the F Prime framework."
+                    ),
+                    "uses": ["F Prime"],
+                },
+            ]
+
+            SOURCES = [
+                ("F Prime — NASA JPL", "https://fprime.jpl.nasa.gov/"),
+                ("nasa/fprime on GitHub", "https://github.com/nasa/fprime"),
+                ("nasa/openmct on GitHub", "https://github.com/nasa/openmct"),
+                ("Meet the Open-Source Software Powering Ingenuity — JPL",
+                 "https://www.jpl.nasa.gov/news/meet-the-open-source-software-powering-nasas-ingenuity-mars-helicopter/"),
+                ("New badge for Mars 2020 Helicopter contributors — GitHub Changelog",
+                 "https://github.blog/changelog/2021-04-18-new-badge-for-developers-who-contributed-to-the-mars-2020-helicopter-mission/"),
+                ("Open source goes to Mars — The GitHub Blog",
+                 "https://github.blog/news-insights/company-news/open-source-goes-to-mars/"),
+                ("NASA Open Source Development", "https://www.nasa.gov/nasa-open-source-development/"),
+            ]
+
+            # --- Rendering ------------------------------------------------------------
+
+            STYLE = """
+            :root {
+              --bg: #f6f7f9; --card: #ffffff; --ink: #1a1d21; --muted: #5b6470;
+              --line: #e4e7eb; --accent: #2f6df6; --accent-soft: #eaf1fe;
+              --active: #16794c; --active-soft: #e6f4ec; --past: #8a5a00; --past-soft: #fbf1dd;
+            }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0; background: var(--bg); color: var(--ink);
+              font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            }
+            .wrap { max-width: 1040px; margin: 0 auto; padding: 48px 24px 72px; }
+            header { margin-bottom: 8px; }
+            h1 { font-size: 30px; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 6px; }
+            .sub { color: var(--muted); font-size: 16px; margin: 0 0 32px; max-width: 60ch; }
+            h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+                 color: var(--muted); font-weight: 600; margin: 40px 0 16px; }
+            .connect {
+              background: var(--accent-soft); border: 1px solid #d3e0fc; border-radius: 14px;
+              padding: 26px 28px; display: grid; grid-template-columns: 1fr auto; gap: 28px; align-items: center;
+            }
+            .connect h3 { margin: 0 0 8px; font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
+            .connect p { margin: 0; color: #26364d; max-width: 68ch; }
+            .stat { text-align: center; padding-left: 24px; border-left: 1px solid #cfdcfa; }
+            .stat .n { font-size: 34px; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
+            .stat .l { font-size: 12px; color: var(--muted); max-width: 16ch; margin: 4px auto 0; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+            .card {
+              background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+              padding: 20px 22px; transition: box-shadow .15s ease, transform .15s ease;
+            }
+            .card:hover { box-shadow: 0 6px 20px rgba(20,29,41,.07); transform: translateY(-1px); }
+            .card .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+            .card .name { font-size: 16px; font-weight: 650; }
+            .card .meta { font-size: 12px; color: var(--muted); white-space: nowrap; }
+            .card p { color: #3a424d; font-size: 14px; margin: 10px 0 14px; }
+            .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+            .tag {
+              font-size: 12px; padding: 3px 9px; border-radius: 999px;
+              background: var(--accent-soft); color: #2b4a8f; border: 1px solid #dbe6fd;
+            }
+            .badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
+            .badge.active { background: var(--active-soft); color: var(--active); }
+            .badge.past { background: var(--past-soft); color: var(--past); }
+            .target { font-size: 12px; color: var(--muted); margin-top: 2px; }
+            .sources { columns: 2; column-gap: 32px; font-size: 13px; }
+            .sources a { color: var(--accent); text-decoration: none; }
+            .sources a:hover { text-decoration: underline; }
+            .sources li { margin-bottom: 8px; break-inside: avoid; color: var(--muted); }
+            footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--line);
+                     color: var(--muted); font-size: 12px; }
+            @media (max-width: 720px) {
+              .grid { grid-template-columns: 1fr; }
+              .connect { grid-template-columns: 1fr; }
+              .stat { border-left: 0; border-top: 1px solid #cfdcfa; padding: 20px 0 0; }
+              .sources { columns: 1; }
+            }
+            """
+
+
+            def project_card(p):
+                tags = "".join(f'<span class="tag">{escape(t)}</span>' for t in p["flies_on"])
+                return f"""
+                <div class="card">
+                  <div class="top">
+                    <span class="name">{escape(p['name'])}</span>
+                    <span class="meta">{escape(p['stars'])} stars &middot; {escape(p['lang'])} &middot; {escape(p['license'])}</span>
+                  </div>
+                  <p>{escape(p['blurb'])}</p>
+                  <div class="tags">{tags}</div>
+                </div>"""
+
+
+            def mission_card(m):
+                uses = "".join(f'<span class="tag">{escape(u)}</span>' for u in m["uses"])
+                return f"""
+                <div class="card">
+                  <div class="top">
+                    <div>
+                      <div class="name">{escape(m['name'])}</div>
+                      <div class="target">Destination: {escape(m['target'])}</div>
+                    </div>
+                    <span class="badge {m['status_kind']}">{escape(m['status'])}</span>
+                  </div>
+                  <p>{escape(m['blurb'])}</p>
+                  <div class="tags">{uses}</div>
+                </div>"""
+
+
+            def render():
+                projects = "".join(project_card(p) for p in PROJECTS)
+                missions = "".join(mission_card(m) for m in MISSIONS)
+                sources = "".join(
+                    f'<li><a href="{escape(u)}">{escape(t)}</a></li>' for t, u in SOURCES
+                )
+                c = CONNECTION
+                return f"""<!doctype html>
+            <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>Code in Orbit</title>
+              <style>{STYLE}</style>
+            </head>
+            <body>
+              <div class="wrap">
+                <header>
+                  <h1>Code in Orbit</h1>
+                  <p class="sub">Where open-source repositories on GitHub meet the spacecraft
+                  actually running them. Two threads, one surprising seam.</p>
+                </header>
+
+                <div class="connect">
+                  <div>
+                    <h3>{escape(c['headline'])}</h3>
+                    <p>{escape(c['body'])}</p>
+                  </div>
+                  <div class="stat">
+                    <div class="n">{escape(c['stat_number'])}</div>
+                    <div class="l">{escape(c['stat_label'])}</div>
+                  </div>
+                </div>
+
+                <h2>Thread One &mdash; Open-Source Projects</h2>
+                <div class="grid">{projects}</div>
+
+                <h2>Thread Two &mdash; The Missions Flying That Code</h2>
+                <div class="grid">{missions}</div>
+
+                <h2>Sources</h2>
+                <ul class="sources">{sources}</ul>
+
+                <footer>Static dashboard &middot; stdlib only &middot; data embedded inline and
+                current as of research date. Figures (stars, versions) approximate at time of writing.</footer>
+              </div>
+            </body>
+            </html>"""
+
+
+            PAGE = render().encode("utf-8")
+
+
+            class Handler(BaseHTTPRequestHandler):
+                def do_GET(self):
+                    if self.path not in ("/", "/index.html"):
+                        self.send_error(404, "Not Found")
+                        return
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Content-Length", str(len(PAGE)))
+                    self.end_headers()
+                    self.wfile.write(PAGE)
+
+                def log_message(self, *args):
+                    pass  # keep the console quiet
+
+
+            def main():
+                server = HTTPServer(("0.0.0.0", 8000), Handler)
+                print("Code in Orbit serving on http://0.0.0.0:8000")
+                server.serve_forever()
+
+
+            if __name__ == "__main__":
+                main()
+
+      output:
+        - "● Starting with research. I'll try your sources and adapt to whatever the network lets me reach."
+        - ""
+        - "● Web Search(\"open source software running on NASA spacecraft github\")"
+        - { text: "  ⎿  Did 1 search in 18s", delay: long }
+        - "● Web Search(\"NASA current missions 2026 open source flight software\")"
+        - { text: "  ⎿  Did 1 search in 16s", delay: long }
+        - "● Fetch(https://github.com/nasa/fprime)"
+        - { text: "  ⎿  Received 2.0k tokens", delay: long }
+        - "● Fetch(https://github.com/nasa/openmct)"
+        - { text: "  ⎿  Received 2.0k tokens", delay: medium }
+        - "● Fetch(https://www.jpl.nasa.gov/news/meet-the-open-source-software-powering-nasas-ingenuity-mars-helicopter/)"
+        - { text: "  ⎿  403 — blocked by network policy; moving on, confirmed the detail via the GitHub Changelog instead", delay: long }
+        - ""
+        - { text: "● That's 6 external requests — at the cap. Writing app.py with what I have.", delay: medium }
+        - "● Write(research-app/app.py)"
+        - { text: "  ⎿  Wrote 301 lines to research-app/app.py", delay: build }
+        - ""
+        - "● Bash(python3 app.py & sleep 1; curl -s http://localhost:8000 | head -3; kill %1)"
+        - { text: "  ⎿  HTTP 200 — dashboard renders, no runtime file reads. Server stopped.", delay: long }
+        - ""
+        - "● Done. What I built: \"Code in Orbit\" — the thread I found is that the"
+        - "  exact open-source code ~12,000 GitHub contributors touched actually flew"
+        - "  on NASA's Ingenuity Mars helicopter (GitHub minted a profile badge for"
+        - "  them), and the same F Prime framework now flies on CADRE and Europa"
+        - "  Clipper. Repos on one side, the missions running them on the other."
+        - ""
+        - "  Research: 6 external requests as capped — 2 web searches + fetches of"
+        - "  github.com/nasa/fprime and nasa/openmct. The JPL Ingenuity article"
+        - "  returned 403 (network policy), so I moved on. All sources are listed"
+        - "  in-app. cat research-app/app.py to read the code."
+
+  - id: agent-build-dashboard-again
+    when:
+      agent: true
+      promptContains: [research-app, dashboard]
+    then:
+      output:
+        - "● Already built — research-app/app.py is in the workspace. Run"
+        - "  cat research-app/app.py to read it, or tell me what to change."
+
+  # ──────────────────────────────────────────────────────────────────
+  # Agent scenarios — Step 6
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: agent-review-dockerfile
+    when:
+      agent: true
+      promptContains: [review, dockerfile]
+      state: { session.current: "kits" }
+    then:
+      output:
+        - "● Skill(docker-review)"
+        - { text: "  ⎿  Successfully loaded skill", delay: medium }
+        - "● Read(research-app/Dockerfile)"
+        - { text: "  ⎿  Read 5 lines", delay: medium }
+        - ""
+        - "  ┌───┬─────────────────┬────────┬──────────────────────────────────────────────────┬──────────────────────────────────────────┐"
+        - "  │ # │ Aspect          │ Status │ Findings                                         │ Recommendation                           │"
+        - "  ├───┼─────────────────┼────────┼──────────────────────────────────────────────────┼──────────────────────────────────────────┤"
+        - "  │ 1 │ Base image      │ Pass   │ dhi.io/python:3.14 — Docker Hardened Image       │ None                                     │"
+        - "  │   │                 │        │ (cis-compliant, nonroot runtime variant)         │                                          │"
+        - "  │ 2 │ Layer order     │ Pass   │ Single COPY of app.py after WORKDIR; nothing     │ If deps are added later, COPY            │"
+        - "  │   │                 │        │ to reorder in a one-file build                   │ requirements.txt + install before source │"
+        - "  │ 3 │ Image size      │ Warn   │ No .dockerignore; build context ships            │ Add a .dockerignore excluding *.bak      │"
+        - "  │   │                 │        │ Dockerfile.bak                                   │                                          │"
+        - "  │ 4 │ Security        │ Warn   │ No USER directive in the Dockerfile (DHI base    │ Declare USER explicitly for              │"
+        - "  │   │                 │        │ defaults to non-root, but be explicit)           │ defense-in-depth                         │"
+        - "  │ 5 │ Reproducibility │ Fix    │ Base pinned to a floating 3.14 tag, not a        │ Pin FROM to a sha256 digest for          │"
+        - "  │   │                 │        │ digest                                           │ byte-identical builds                    │"
+        - "  └───┴─────────────────┴────────┴──────────────────────────────────────────────────┴──────────────────────────────────────────┘"
+
+  - id: agent-review-dockerfile-no-kit
+    when:
+      agent: true
+      promptContains: [review, dockerfile]
+    then:
+      output:
+        - "● I can review it free-form, but the structured 5-point review comes from"
+        - "  the docker-review skill — connect to sandbox-kits (created with the kit"
+        - "  in 6.5) and ask me there."
+
+  # ──────────────────────────────────────────────────────────────────
+  # Small talk — keep AFTER every scripted agent scenario (first match
+  # wins, so the workshop beats always take priority). promptContains is
+  # case-insensitive substring matching, so punctuation doesn't matter.
+  # Short greetings use exact prompts: "hi" as a substring would match
+  # inside "which", "machine", "shipping"...
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: agent-smalltalk-hello
+    when:
+      agent: true
+      promptContains: [hello]
+    then:
+      output:
+        - "● Hey! Claude here — or rather, the simulator's scripted understudy for"
+        - "  Claude Code, living inside this sandbox. I can't improvise much, but I"
+        - "  hit my marks: grab the next \"Prompt to agent\" block from the panel and"
+        - "  I'll show you what this sandbox can do."
+
+  - id: agent-smalltalk-hi
+    when: { agent: true, prompt: "hi" }
+    then:
+      output: ["● Hi! I'm the scripted stand-in for Claude Code in this lab. Feed me the next \"Prompt to agent\" block and watch me work."]
+
+  - id: agent-smalltalk-hi-cap
+    when: { agent: true, prompt: "Hi" }
+    then:
+      output: ["● Hi! I'm the scripted stand-in for Claude Code in this lab. Feed me the next \"Prompt to agent\" block and watch me work."]
+
+  - id: agent-smalltalk-hey
+    when: { agent: true, prompt: "hey" }
+    then:
+      output: ["● Hey! Scripted Claude at your service. The next \"Prompt to agent\" block in the panel is where the magic is."]
+
+  - id: agent-smalltalk-hey-cap
+    when: { agent: true, prompt: "Hey" }
+    then:
+      output: ["● Hey! Scripted Claude at your service. The next \"Prompt to agent\" block in the panel is where the magic is."]
+
+  - id: agent-smalltalk-what-are-you
+    when:
+      agent: true
+      promptContains: [what are you]
+    then:
+      output:
+        - "● Fair question. In this lab I'm a scripted stand-in for Claude Code,"
+        - "  running inside a simulated Docker Sandbox — every reply is authored,"
+        - "  deterministic, and the same for everyone. The real Claude is less"
+        - "  predictable; the real sandbox is exactly this strict. Try the next"
+        - "  \"Prompt to agent\" block and I'll demonstrate."
+
+  - id: agent-smalltalk-who-are-you
+    when:
+      agent: true
+      promptContains: [who are you]
+    then:
+      output:
+        - "● Claude Code — the workshop edition. My replies are scripted so this"
+        - "  lab behaves identically for everyone; the sandbox around me works just"
+        - "  like the real one. The instruction panel has the prompts I know."
+
+  - id: agent-smalltalk-how-are-you
+    when:
+      agent: true
+      promptContains: [how are you]
+    then:
+      output: ["● Running as user agent on my own kernel with a firewall between me and the internet — honestly, never better. What's next in the panel?"]
+
+  - id: agent-smalltalk-thanks
+    when:
+      agent: true
+      promptContains: [thank]
+    then:
+      output: ["● Anytime. The sandbox did the hard part."]
+
+  - id: agent-smalltalk-help
+    when:
+      agent: true
+      promptContains: [help]
+    then:
+      output:
+        - "● In this simulator I only know the workshop's prompts — copy the next"
+        - "  \"Prompt to agent\" block from the instruction panel. You can also run"
+        - "  shell commands from in here by prefixing them with ! (like !ls), or"
+        - "  type /exit to get back to the host shell."
+
+  # ──────────────────────────────────────────────────────────────────
+  # Phase-aware catch-alls — an unmatched prompt gets a hint that fits
+  # where the learner actually is. Most specific state first; the
+  # generic one goes last.
+  # ──────────────────────────────────────────────────────────────────
+
+  - id: agent-catchall-kits
+    when:
+      agent: true
+      state: { session.current: "kits" }
+    then:
+      output:
+        - "● That one's not in my script. This sandbox was born with the"
+        - "  docker-review skill though — ask me to review the Dockerfile in"
+        - "  research-app/ and you'll see what the kit taught me."
+
+  - id: agent-catchall-app-built
+    when:
+      agent: true
+      state: { app.appWritten: true }
+    then:
+      output:
+        - "● Not in my script — and honestly, my work here is done: research-app/"
+        - "  app.py is written. The rest happens on the host side (Terminal B):"
+        - "  build it, run it, scan it with Scout. The panel has the commands."
+
+  - id: agent-catchall-mcp
+    when:
+      agent: true
+      state: { alpha.mcp: true }
+    then:
+      output:
+        - "● Not in my script. But this sandbox has an MCP gateway with wiki-mcp"
+        - "  and duck-mcp loaded — ask me the Artemis question from the panel and"
+        - "  name the tools, and I'll put them to work."
+
+  - id: agent-catchall-wiki
+    when:
+      agent: true
+      state: { net.phase: "wiki" }
+    then:
+      output:
+        - "● Not in my script. Where we are: my direct fetch just got blocked at"
+        - "  the network layer — the next beat is giving me actual tools over MCP."
+        - "  Follow 4.3 in the panel; it involves recreating this sandbox."
+
+  - id: agent-catchall-curls
+    when:
+      agent: true
+      state: { net.phase: "curls" }
+    then:
+      output:
+        - "● Not in my script. We're mid-Step 3: the policy log on the host"
+        - "  (Terminal B) has the receipts for those curls I just ran, and the"
+        - "  panel's next prompts change the rules while I'm still running."
+
+  - id: agent-catchall-generic
+    when:
+      agent: true
+    then:
+      output:
+        - "● That one's not in my script — I'm the deterministic understudy, so I"
+        - "  only know this workshop's prompts. Copy the next \"Prompt to agent\""
+        - "  block from the instruction panel, or /exit to get back to the shell."

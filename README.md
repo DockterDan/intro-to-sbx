@@ -1,9 +1,15 @@
-# My Simspace lab
+# Intro to Docker Sandboxes (SBX 101)
 
-An interactive, fully in-browser lab built on
+The SBX 101 workshop as an interactive, fully in-browser lab, built on
 [Simspace](https://github.com/dockersamples/simspace). Everything in the terminal
 is simulated — no real Docker, backend, or network — so it runs the same for
-everyone, with nothing to install.
+everyone, with nothing to install. Every CLI output was captured from real
+`sbx` v0.35.0 sessions; see [AUTHORING-NOTES.md](AUTHORING-NOTES.md) for
+provenance and the sim-vs-real deviations.
+
+Covers: creating sandboxes, proving the isolation boundary, network policy +
+audit log, MCP tools (including the create-time gateway), Docker Scout + DHI
+hardening, and packaging it all as a kit.
 
 You edit the lab under [`lab/`](lab/); the app that runs it is a prebuilt image,
 and the lab is loaded at runtime, so there's no build step for content.
