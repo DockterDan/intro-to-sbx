@@ -16,7 +16,7 @@ Every command you typed is the real `sbx` / `docker` surface, and every output m
 ## Do it for real
 
 - **Get started:** [docs.docker.com/ai/sandboxes](https://docs.docker.com/ai/sandboxes/get-started/) — `brew install docker/tap/sbx` (macOS) or `winget install -h Docker.sbx` (Windows), Docker Desktop 4.58+.
-- **The full workshop** — including the provider variants (Codex, Gemini, OpenCode), the Windows paths, the go-deeper exercises, and Steps 7–8 on **Docker Agent** multi-agent orchestration: [SBX 101 / AI Engineer Workshop](https://dockterdan.github.io/ai-engineer-workshop/).
+- **The full workshop** — including the provider variants (Codex, Gemini, OpenCode), the Windows paths, the optional deep-dive exercises, and Steps 7–8 on **Docker Agent** multi-agent orchestration: [SBX 101 / AI Engineer Workshop](https://dockterdan.github.io/ai-engineer-workshop/).
 - **Docker Hardened Images:** [docker.com/products/hardened-images](https://www.docker.com/products/hardened-images/).
 
-The pitch, one last time: agents are most useful when you can say **yes** to them — and you can only say yes when you know exactly what they can see, reach, and ship. That's what the sandbox is for.
+One idea ties all of this together: agents are most useful when you can say **yes** to them, and you can only say yes when you know exactly what they can see, reach, and ship. That is what the sandbox is for.

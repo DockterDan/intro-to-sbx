@@ -20,7 +20,7 @@ files:
     It is the ONLY directory the agent can see.
 
 sections:
-  - title: Welcome & setup
+  - title: Introduction
     contentPath: 00-setup.md
   - title: "Step 1 — Your first sandbox"
     contentPath: 01-first-sandbox.md

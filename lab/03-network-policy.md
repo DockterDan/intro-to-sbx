@@ -1,4 +1,4 @@
-# Step 3 — Network policy: what the agent can reach
+# Step 3 — Controlling network access
 
 **Goal:** see the default policy, watch allow vs deny live, read the audit trail, then write your own rules.
 
@@ -22,7 +22,7 @@ local-policy                           local    all                     network:
 
 Two things to read off this. `local-policy` is your **Balanced** bundle: 192 allow rules covering AI providers, package managers, code hosts, cloud infrastructure, and OS package repos — and everything not on that list is denied by default. Nobody sat down and allowed `reddit.com`; it's simply not covered. And notice the **kit** row: the `claude` agent template itself ships a tiny policy (3 allows — its own API endpoints) scoped to just that sandbox. Even the agent's brain plays by policy rules.
 
-## 3.2 Allow vs deny, live
+## 3.2 Test the policy from inside
 
 In **Terminal A** (attach with `sbx run --name sandbox-alpha` if you exited), hand the agent five URLs — two on the default lists, three not:
 
@@ -97,7 +97,7 @@ Run curl -s https://pypi.org -o /dev/null -w "pypi.org: %{http_code} (%{size_dow
 Expected:
 
 ```text no-run-button no-copy-button
-pypi.org: 403 (0 bytes)
+pypi.org: 403 (171 bytes)
 
 ERROR: Could not find a version that satisfies the requirement requests
 ERROR: No matching distribution found for requests
@@ -127,7 +127,7 @@ sbx policy ls
 
 Removal prints `Rule removed from policy local: resources=example.com`, and the summary drops back to `1 deny`.
 
-> **Go deeper — subdomains and wildcards:** `nasa.gov` and `www.nasa.gov` are *different hosts* to the policy engine — an allow for one doesn't cover the other. The rule syntax handles this: wildcard subdomains (`*.nasa.gov`), port suffixes (`nasa.gov:443`), comma lists, `**` for allow-everything, and `--sandbox <name>` to scope a rule to one sandbox instead of all. See `sbx policy allow network --help`.
+> **Subdomains and wildcards:** `nasa.gov` and `www.nasa.gov` are *different hosts* to the policy engine — an allow for one doesn't cover the other. The rule syntax handles this: wildcard subdomains (`*.nasa.gov`), port suffixes (`nasa.gov:443`), comma lists, `**` for allow-everything, and `--sandbox <name>` to scope a rule to one sandbox instead of all. See `sbx policy allow network --help`.
 
 > **Leave things as they are now** going into Step 4: `nasa.gov` allowed, `pypi.org` denied. Both are load-bearing later.
 

@@ -1,4 +1,4 @@
-# Step 6 — Standardize via SBX Kits
+# Step 6 — Standardizing setups with kits
 
 **Goal:** everything so far was ad-hoc — commands you typed, one sandbox at a time. A **kit** packages capability declaratively, so every sandbox on a team starts with the same setup. You'll build a *mixin kit* that ships a Claude Code skill: a 5-point Dockerfile review checklist.
 
@@ -114,4 +114,4 @@ Confirm with:
 y
 ```
 
-Ad-hoc setup became a file you can version, review, and hand to a team. That's the arc — one more page to close it out.
+Your ad-hoc setup became a file you can version, review, and hand to a team. One more page closes things out.

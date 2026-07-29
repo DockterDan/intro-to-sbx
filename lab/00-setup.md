@@ -118,4 +118,4 @@ SCOPE      TYPE      NAME        SECRET
 
 > **In real use:** one `sbx secret set -g <provider>` per provider — `anthropic`, `openai`, `google`, or `opencode`. This lab follows the Claude path throughout.
 
-That's it — no restarts, no environment variables. On to your first sandbox.
+That's it — no restarts, no environment variables. Next, create your first sandbox.

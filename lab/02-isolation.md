@@ -1,4 +1,4 @@
-# Step 2 — Isolation proof: what the sandbox shares and what it doesn't
+# Step 2 — Proving the isolation boundary
 
 **Goal:** run three tests. The workspace is shared both ways; everything outside it is invisible; secrets are usable but unreadable.
 
@@ -10,9 +10,9 @@ This step uses both tabs: **Terminal A** stays attached to the agent, **Terminal
 sbx run --name sandbox-alpha
 ```
 
-## 2.1 The workspace is shared — both ways
+## 2.1 The workspace is shared in both directions
 
-**Host → agent.** In **Terminal B**, write a file into the workspace from the host side:
+First, write a file from the host side. In **Terminal B**:
 
 ```bash terminal-id=b
 echo "Written from the host" > ~/workshop/sbx/host-to-agent.txt
@@ -26,7 +26,7 @@ There should be a file called host-to-agent.txt in your workspace. Run cat host-
 
 It sees your file, instantly — no copy, no sync. Same directory, mounted through the VM boundary.
 
-**Agent → host.** Now the other direction. In **Terminal A**:
+Now reverse the direction — have the agent write a file for you. In **Terminal A**:
 
 ```text terminal-id=a
 Create a file called agent-to-host.txt in your workspace with the text "Written from the agent".
@@ -44,7 +44,7 @@ cat ~/workshop/sbx/agent-to-host.txt
 
 > **Heads up:** inside the sandbox, `~` is `/home/agent` — the agent's home inside the VM — *not* your workspace. The workspace is mounted at your host path.
 
-## 2.2 Outside the workspace: invisible
+## 2.2 Files outside the workspace are invisible
 
 In **Terminal B**, put a file right next to the workspace — in `~/workshop`, one level up — where any normal process on your machine could read it:
 
@@ -67,7 +67,7 @@ cat: /Users/me/workshop/host-marker.txt: No such file or directory (exit 1)
 
 Note the first line: inside the sandbox, `~` expanded to `/home/agent` — not your home. And the absolute `/Users/me/...` path fails too, because your `/Users` tree simply isn't mounted in there. The file is one directory above the workspace, and it may as well not exist. **The boundary is not a permission dialog or a prompt the model agreed to follow. It is a mount table.**
 
-## 2.3 Secrets: on the host, not in the VM
+## 2.3 Secrets stay on the host, never in the VM
 
 Your key is registered on the host — confirm in **Terminal B**:
 
@@ -91,4 +91,4 @@ In **Terminal B**:
 rm ~/workshop/host-marker.txt ~/workshop/sbx/host-to-agent.txt ~/workshop/sbx/agent-to-host.txt
 ```
 
-Three tests, three boundaries: files shared deliberately, everything else invisible, secrets out of reach. Next: the network.
+Three tests, three boundaries: files are shared deliberately, everything else is invisible, and secrets stay out of reach. Next comes the network.

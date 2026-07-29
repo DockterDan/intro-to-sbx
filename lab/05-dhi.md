@@ -1,10 +1,10 @@
-# Step 5 — Hardened output via DHI: what the agent ships
+# Step 5 — Hardening the agent's output with DHI
 
 **Goal:** give the agent an open-ended build task, watch the policy boundary shape its research, then build the result, scan it, swap the base image for a **Docker Hardened Image**, and compare the CVE counts.
 
 Same split: agent work in **Terminal A**, everything `docker` and `sbx policy` in **Terminal B**.
 
-## Before you start: re-open PyPI
+## Before you start, re-open PyPI
 
 The agent may want packages while researching, and our Step 3 deny rule would break that for reasons unrelated to the demo. In **Terminal B** — same mechanic as 3.6:
 
@@ -108,7 +108,7 @@ Should look like (counts vary in real life):
 
 ```text no-run-button no-copy-button
  Target             │  research-app:v1  │    1C     2H     3M    28L     7?
-   digest           │  4159da85b868     │
+   digest           │  3ab201f359e1     │
  Base image         │  python:3-slim    │    1C     2H     3M    28L     7?
  Updated base image │  python:alpine    │    0C     0H     0M     0L
 ```
@@ -158,7 +158,7 @@ Should look like:
 
 **Zero criticals, zero highs.** The remaining mediums/lows are unfixed upstream issues that every Python image carries — nothing with a fix is left unpatched.
 
-## 5.7 The delta, unmissable
+## 5.7 Compare the two images
 
 ```bash terminal-id=b
 docker scout compare --to research-app:v1 research-app:v2
@@ -166,4 +166,4 @@ docker scout compare --to research-app:v1 research-app:v2
 
 Three things in that diff are the whole DHI pitch. The vulnerability row: criticals and highs go to **zero**. The size rows: 42 fewer packages, 13 MB smaller — attack surface that simply left the building. And the **Labels** section: `com.docker.dhi.compliance=cis`, an explicit end-of-life date, versioned provenance — the compliance paperwork ships *inside* the image.
 
-Same code, same Dockerfile shape, same runtime behavior. One `FROM` line. That's the play: **the agent ships the app, DHI hardens what it ships.**
+Same code, same Dockerfile shape, same runtime behavior — one `FROM` line changed. **The agent ships the app; DHI hardens what it ships.**

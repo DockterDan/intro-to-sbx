@@ -1,4 +1,4 @@
-# Step 1 — SBX basics: your first sandbox
+# Step 1 — Your first sandbox
 
 **Goal:** create a sandbox, confirm it's running, attach to the agent inside it, and make it prove it's living in a Linux microVM — not on your machine.
 
@@ -65,7 +65,7 @@ Read those three lines again, because they're the whole point of this step:
 
 And the API key you stored during setup? It's in your OS keychain. The credential proxy injects it at the network layer when the agent calls its provider — the key never enters the VM at all. The agent can *use* it but can never *read* it. The hypervisor enforces it.
 
-## 1.5 Go deeper — sandboxes are cheap
+## 1.5 Run a second sandbox
 
 Leave the session (`/exit`) and create a second sandbox pointing at the same workspace:
 
@@ -103,4 +103,4 @@ y
 sbx ls
 ```
 
-Back to just `sandbox-alpha`. On to proving the isolation is real.
+You are back to just `sandbox-alpha`. Next, we prove the isolation is real.
