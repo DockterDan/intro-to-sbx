@@ -13,6 +13,12 @@ terminals:
     title: Terminal B
     icon: dns
 
+# $$track$$ drives the two explanation tracks: "tech" (default) keeps the
+# terse voice; "guided" adds plain-language context blocks for people new
+# to sandboxes. Same commands either way.
+variables:
+  track: tech
+
 # The virtual filesystem represents ~/workshop on your machine.
 files:
   sbx/README.txt: |

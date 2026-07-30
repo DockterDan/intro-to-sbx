@@ -2,6 +2,10 @@
 
 **Goal:** register two MCP servers, hit a very real wall trying to attach them to a running sandbox, fix it the way you would in production, and watch the agent pick the right tool — then verify at the network layer.
 
+:::conditionaldisplay{variable="track" value="guided"}
+**Why this matters:** so far the agent can think and type, but it has no tools. Instead of opening the whole internet to it, you'll hand it two specific instruments — an encyclopedia lookup and a web search — through one supervised doorway called a gateway. Along the way you'll hit a real error that teaches the rule everyone learns the hard way: the doorway is installed when the room is built, so a room built without one has to be rebuilt. Thirty seconds, nothing lost — and that's the point of disposable rooms.
+:::
+
 The agent can think and run commands, and Claude ships some built-in tools of its own — but MCP (Model Context Protocol) is how you hand it *your* tools: curated, inspectable, swappable. `sbx` has a built-in MCP registry: register a server once, attach it to any sandbox. Registry work happens in **Terminal B**; talking to the agent stays in **Terminal A**.
 
 ## 4.1 Enable the MCP subtree

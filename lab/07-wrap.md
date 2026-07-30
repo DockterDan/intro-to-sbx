@@ -9,6 +9,10 @@ You just ran the core arc of SBX 101, end to end:
 5. **Shipped hardened output** — the agent built the app inside the boundary; one `FROM dhi.io/...` line collapsed the CVE count.
 6. **Standardized it** — a mixin kit turned your ad-hoc setup into a versionable file any teammate can attach with one flag.
 
+:::conditionaldisplay{variable="track" value="guided"}
+**The plain-language recap:** you built a disposable room for an AI worker, proved its walls were real, ran its only phone line through your switchboard, handed it tools through one supervised door, inspected the crate its work shipped in, and saved the blueprint so anyone can build the same room tomorrow. That is the entire discipline of running AI agents safely, in six steps.
+:::
+
 ## What was simulated
 
 Every command you typed is the real `sbx` / `docker` surface, and every output matches what the real workshop shows. What the simulator changed: no installs, no API keys, no Docker daemon, and the agent's replies are scripted — deterministic on purpose, so the lab behaves identically for everyone.

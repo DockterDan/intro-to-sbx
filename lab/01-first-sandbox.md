@@ -2,6 +2,10 @@
 
 **Goal:** create a sandbox, confirm it's running, attach to the agent inside it, and make it prove it's living in a Linux microVM — not on your machine.
 
+:::conditionaldisplay{variable="track" value="guided"}
+**Why this matters:** think of the sandbox as a separate small computer that lives inside yours, built in seconds and thrown away just as fast. The agent works in there, not on your machine. In this step you build one, step inside it through the agent, and ask the agent to describe where it is — its answers prove it's in the room you built, with its own operating system, its own restricted user account, and exactly one of your folders visible.
+:::
+
 ## 1.1 Create a sandbox
 
 One command creates the microVM, mounts a workspace into it, and starts the agent runtime. The last two arguments are *which agent* and *which directory it may see*:

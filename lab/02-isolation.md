@@ -2,6 +2,10 @@
 
 **Goal:** run three tests. The workspace is shared both ways; everything outside it is invisible; secrets are usable but unreadable.
 
+:::conditionaldisplay{variable="track" value="guided"}
+**Why this matters:** promises are not boundaries. An agent that merely *agrees* not to read your files can be talked out of that agreement — by a malicious webpage, a poisoned file, anyone. This step shows the boundary is physical, not polite: the one folder you shared works like a shared drive, every other file on your machine simply does not exist from inside the room, and your API key behaves like a hotel keycard — it opens the one door it's for, but the agent holding it can never read the number printed inside.
+:::
+
 This step uses both tabs: **Terminal A** stays attached to the agent, **Terminal B** is your host shell. Everything happens right here in the two tabs.
 
 **Terminal A** — make sure you're attached to the agent:
