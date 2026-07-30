@@ -2,13 +2,13 @@
 
 How this lab was built, what's real, what's simulated, and what we learned
 about the SimSpace platform along the way. Companion to the lab content in
-`lab/`.
+`labs/sbx-101/`.
 
 ## Provenance
 
 The lab is a SimSpace port of the **LP1 track of the SBX 101 workshop**
 (dockterdan.github.io/ai-engineer-workshop), scoped to Quick Setup + Steps 1–6
-on the Claude path. Every CLI output in `lab/simulator.yaml` was verified
+on the Claude path. Every CLI output in `labs/sbx-101/simulator.yaml` was verified
 against **sbx v0.35.0** across three capture rounds on a real machine
 (transcripts in the author's `sbx-captures/` folder, recorded with `script`):
 

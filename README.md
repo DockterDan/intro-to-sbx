@@ -11,7 +11,7 @@ Covers: creating sandboxes, proving the isolation boundary, network policy +
 audit log, MCP tools (including the create-time gateway), Docker Scout + DHI
 hardening, and packaging it all as a kit.
 
-You edit the lab under [`lab/`](lab/); the app that runs it is a prebuilt image,
+You edit the lab under [`labs/sbx-101/`](labs/sbx-101/); the app that runs it is a prebuilt image,
 and the lab is loaded at runtime, so there's no build step for content.
 
 ## Author locally
@@ -23,11 +23,11 @@ docker compose up dev              # live preview at http://localhost:5173
 docker compose run --rm validate   # lint the lab (fails on errors)
 ```
 
-Edit the files in `lab/` and refresh the browser to see changes:
+Edit the files in `labs/sbx-101/` and refresh the browser to see changes:
 
-- `lab/labspace.yaml` — title, terminals, seed files, sections, variables
-- `lab/simulator.yaml` — what each command does (scenarios)
-- `lab/*.md` — one file per section of instructions
+- `labs/sbx-101/labspace.yaml` — title, terminals, seed files, sections, variables
+- `labs/sbx-101/simulator.yaml` — what each command does (scenarios)
+- `labs/sbx-101/*.md` — one file per section of instructions
 
 Pin the toolchain to a released version for reproducibility:
 
