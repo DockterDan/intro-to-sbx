@@ -2,7 +2,7 @@
 
 **Goal:** see the default policy, watch allow vs deny live, read the audit trail, then write your own rules.
 
-:::conditionaldisplay{variable="track" value="guided"}
+:::conditionalDisplay{variable="track" requiredValue="guided"}
 **Why this matters:** the biggest risk with an agent isn't what it reads — it's what it *sends*. This step puts the room's only phone line through a switchboard you run: calls to numbers on your list connect, everything else is refused, and every attempt — allowed or blocked — lands on an itemized bill you can read afterward. You'll watch a blocked call fail, write your own rules, and check the bill. Even the agent's own calls to its AI provider show up on it.
 :::
 

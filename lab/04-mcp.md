@@ -2,7 +2,7 @@
 
 **Goal:** register two MCP servers, hit a very real wall trying to attach them to a running sandbox, fix it the way you would in production, and watch the agent pick the right tool — then verify at the network layer.
 
-:::conditionaldisplay{variable="track" value="guided"}
+:::conditionalDisplay{variable="track" requiredValue="guided"}
 **Why this matters:** so far the agent can think and type, but it has no tools. Instead of opening the whole internet to it, you'll hand it two specific instruments — an encyclopedia lookup and a web search — through one supervised doorway called a gateway. Along the way you'll hit a real error that teaches the rule everyone learns the hard way: the doorway is installed when the room is built, so a room built without one has to be rebuilt. Thirty seconds, nothing lost — and that's the point of disposable rooms.
 :::
 

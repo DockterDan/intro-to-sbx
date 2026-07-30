@@ -2,15 +2,8 @@
 
 **Docker Sandboxes (sbx)** run AI coding agents — Claude Code, Codex, Gemini, OpenCode — inside an isolated Linux microVM instead of loose on your laptop.
 
-## Pick how you want this explained
-
-Same lab, same commands — two ways of explaining them. Switch any time by coming back here.
-
-:variablesetbutton[Technical track — terse, assumes Docker fluency]{variable="track" value="tech"}
-:variablesetbutton[Guided track — plain language, no background assumed]{variable="track" value="guided"}
-
-:::conditionaldisplay{variable="track" value="guided"}
-**Guided track is on.** Before anything else, the one-paragraph version of why this lab exists: AI coding agents are programs that can read files, write files, and run commands on your computer — that's what makes them useful, and it's also what makes them risky. You wouldn't give a contractor you met five minutes ago the keys to your whole house. A sandbox is how you give an agent a *room* instead: it works fast, you watch everything it does, and it physically cannot touch anything you didn't hand it. This lab shows you that room being built, tested, and locked.
+:::conditionalDisplay{variable="track" requiredValue="guided"}
+**The why, in one paragraph.** Coding agents don't just answer questions — they act: reading files, writing files, and running commands, often for minutes at a stretch without checking in. That autonomy is the value, and it's also the exposure — an agent with access to a whole laptop can be tricked, or simply wrong, at machine speed. A **sandbox** is the structural answer: the agent gets a small disposable computer of its own, holding only the one folder you chose to share, where everything it does is recorded and nothing else is reachable. Not a policy — a boundary. This lab shows that boundary built, tested, and put to work.
 :::
 
 In this lab you will:
@@ -26,11 +19,12 @@ In this lab you will:
 
 Everything is **simulated in your browser** — nothing to install, no API keys, no network calls. Commands behave the same way every time, for everyone.
 
-- Press **Run** on a code block to execute it, or type commands yourself — `ls`, `cat`, `clear`, and friends work too.
+- Press **Run** on a code block to execute it, or type the commands yourself. Shell basics like `ls`, `clear`, and `cat <file>` behave the way you would expect.
 - When a line ends with `▊`, the CLI is waiting for your answer — type it as your next line (the number, the pasted key, or `y`/`n`).
 - **Terminal A** is where you talk to the agent. **Terminal B** is your host shell for watching logs while the agent works. Both are shells on the same simulated machine.
 - Blocks marked **Prompt to agent** are typed *inside* an agent session, not at the shell.
 - Type `/exit` to leave an agent session. (The real CLI uses Ctrl+C twice.) Inside a session, prefix a line with `!` to run a shell command without leaving — e.g. `!ls`.
+- To reset the whole lab to a clean slate at any point, right-click the Docker logo in the top-left corner.
 
 > **Heads up:** in the real workshop you'd install the CLI with `brew install docker/tap/sbx` (macOS) or `winget install -h Docker.sbx` (Windows). The simulator skips the installs — but every `sbx` command here is the real command surface.
 
@@ -129,7 +123,7 @@ SCOPE      TYPE      NAME        SECRET
 
 > **In real use:** one `sbx secret set -g <provider>` per provider — `anthropic`, `openai`, `google`, or `opencode`. This lab follows the Claude path throughout.
 
-:::conditionaldisplay{variable="track" value="guided"}
+:::conditionalDisplay{variable="track" requiredValue="guided"}
 **Why this setup matters:** you just did three things that most security setups get wrong. You chose a network rule *before* running anything (most people bolt security on later). You stored the API key in the operating system's locked keychain instead of a file (keys in files leak). And notice what you did *not* do: you never gave the key to the agent. Keep that in mind — it becomes a magic trick in Step 2.
 :::
 

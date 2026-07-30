@@ -2,7 +2,7 @@
 
 **Goal:** everything so far was ad-hoc — commands you typed, one sandbox at a time. A **kit** packages capability declaratively, so every sandbox on a team starts with the same setup. You'll build a *mixin kit* that ships a Claude Code skill: a 5-point Dockerfile review checklist.
 
-:::conditionaldisplay{variable="track" value="guided"}
+:::conditionalDisplay{variable="track" requiredValue="guided"}
 **Why this matters:** everything so far was hand-built — fine for one person, useless for a team. A kit is the blueprint version: your setup written down as a few small files, so the next hundred rooms are built identically, and the instruction card you wrote once is lying on every desk. This is the difference between "it works on my machine" and "it works the same for everyone" — the whole reason teams standardize.
 :::
 

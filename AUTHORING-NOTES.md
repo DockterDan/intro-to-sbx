@@ -45,20 +45,18 @@ against **sbx v0.35.0** across three capture rounds on a real machine
 
 Found while authoring; none block the lab.
 
-1. **No Reset button without `controls:`** — the Settings dialog (which the
-   spec says houses the Reset button) only appears when a lab defines
-   `controls:`. This lab defines one partly to summon the dialog. Even then,
-   **no Reset button renders** in the current authoring image — the only true
-   reset is incognito mode or `localStorage.clear()`. Spec §2/§11/§14.1 all
-   reference a Reset button.
+1. **Reset exists but is undiscoverable** — it turns out reset is triggered
+   by right-clicking the Docker logo. Nothing in the UI or docs advertises
+   this, and the spec (§2/§11/§14.1) references a Reset button in the
+   Settings dialog instead — which itself only renders when a lab defines
+   `controls:`, and even then carries no Reset. A visible, documented
+   control would save every author (and learner) the hunt; this lab
+   documents the right-click in its own content as a stopgap.
 2. **Session state AND transcript persist across reloads** (browser
    localStorage) — contradicting spec §2, which says state "is not persisted
-   to disk" and re-seeds on every initialization. Combined with item 1
-   (no Reset button), the only true reset is `localStorage.clear()` in
-   DevTools or a private window. Resume-on-reload is arguably right for
-   learners; authors need a one-click reset. This lab ships its own
-   workaround: a same-origin "Reset this lab" button on the Reference
-   service tab (`lab/resources.html`) that clears storage and reloads.
+   to disk" and re-seeds on every initialization. Resume-on-reload is
+   arguably right for learners, but combined with item 1 it left authors
+   with no obvious clean-slate path.
 3. **Arrow keys don't drive picker-style prompts** — they scroll shell
    history, so TUI-style choosers (like `sbx policy reset`) can only be
    answered by typing a number. The lab's copy works around this.
@@ -80,6 +78,11 @@ Found while authoring; none block the lab.
 5. **No wildcard/regex arg matchers** (spec §16 lists this as deferred) —
    e.g. any non-`y` answer should abort a confirm; today each answer needs
    its own scenario.
+6. **`variableSetButton` needs display variants and a quieter selected
+   state** — chooser pages (this lab's track picker) want large tile/card
+   buttons; today buttons render small and are easy to miss. On selection,
+   the injected check mark reflows the layout so buttons visibly shift;
+   the color change alone would be enough.
 
 ## Change log (authoring rounds)
 

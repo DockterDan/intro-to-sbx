@@ -67,34 +67,9 @@
   <p class="note">Links open in a new tab. This page ships with the lab; the simulator itself never touches the network.</p>
 
   <h2>Start over</h2>
-  <p class="note">The lab saves your terminal session in this browser so a refresh
-  doesn't lose your place. To wipe everything — transcript, sandboxes, policies —
-  and begin from a clean slate:</p>
-  <p>
-    <button id="reset-lab" style="font: inherit; padding: .5rem 1rem; border: 1px solid var(--line);
-      border-radius: 6px; background: var(--chip); color: var(--ink); cursor: pointer;">
-      Reset this lab
-    </button>
-    <span id="reset-msg" class="note" style="margin-left: .75rem;"></span>
-  </p>
-  <script>
-    document.getElementById('reset-lab').addEventListener('click', async function () {
-      var msg = document.getElementById('reset-msg');
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-        if (window.indexedDB && indexedDB.databases) {
-          var dbs = await indexedDB.databases();
-          await Promise.all(dbs.map(function (db) {
-            return db && db.name ? indexedDB.deleteDatabase(db.name) : null;
-          }));
-        }
-        msg.textContent = 'Cleared — reloading…';
-        setTimeout(function () { window.top.location.reload(); }, 400);
-      } catch (e) {
-        msg.textContent = 'Could not clear automatically — use DevTools → Application → Clear site data.';
-      }
-    });
-  </script>
+  <p class="note">The lab saves your session in this browser, so a refresh doesn't
+  lose your place. To wipe everything and begin from a clean slate —
+  transcript, sandboxes, policies, all of it — <strong>right-click the Docker
+  logo</strong> in the top-left corner of the page.</p>
 </body>
 </html>

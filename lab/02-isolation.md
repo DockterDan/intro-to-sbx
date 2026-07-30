@@ -2,7 +2,7 @@
 
 **Goal:** run three tests. The workspace is shared both ways; everything outside it is invisible; secrets are usable but unreadable.
 
-:::conditionaldisplay{variable="track" value="guided"}
+:::conditionalDisplay{variable="track" requiredValue="guided"}
 **Why this matters:** promises are not boundaries. An agent that merely *agrees* not to read your files can be talked out of that agreement — by a malicious webpage, a poisoned file, anyone. This step shows the boundary is physical, not polite: the one folder you shared works like a shared drive, every other file on your machine simply does not exist from inside the room, and your API key behaves like a hotel keycard — it opens the one door it's for, but the agent holding it can never read the number printed inside.
 :::
 

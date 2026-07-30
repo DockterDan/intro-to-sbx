@@ -2,7 +2,7 @@
 
 **Goal:** give the agent an open-ended build task, watch the policy boundary shape its research, then build the result, scan it, swap the base image for a **Docker Hardened Image**, and compare the CVE counts.
 
-:::conditionaldisplay{variable="track" value="guided"}
+:::conditionalDisplay{variable="track" requiredValue="guided"}
 **Why this matters:** now the agent does real work — researching and writing a small web app — and you'll see the switchboard shape what it produces: sources it couldn't call, it worked around, and it documented that honestly. Then comes the part most people skip: before anything ships, you inspect the package it ships in. The scanner counts known security flaws in the packaging, and swapping one line for Docker's pre-hardened packaging makes the worst of them vanish. The agent writes the product; you control the shipping crate.
 :::
 

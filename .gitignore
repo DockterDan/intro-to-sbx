@@ -4,3 +4,4 @@ site/
 Icon
 Icon?
 .DS_Store
+.env

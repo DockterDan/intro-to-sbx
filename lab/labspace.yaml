@@ -13,11 +13,10 @@ terminals:
     title: Terminal B
     icon: dns
 
-# $$track$$ drives the two explanation tracks: "tech" (default) keeps the
-# terse voice; "guided" adds plain-language context blocks for people new
-# to sandboxes. Same commands either way.
-variables:
-  track: tech
+# The `track` variable drives the two explanation tracks, chosen on the
+# "Start here" page: "tech" keeps the terse voice, "guided" adds
+# plain-language context blocks. Unset until the learner picks; the base
+# text IS the technical track, so the lab reads fine either way.
 
 # The virtual filesystem represents ~/workshop on your machine.
 files:
@@ -26,6 +25,8 @@ files:
     It is the ONLY directory the agent can see.
 
 sections:
+  - title: Start here
+    contentPath: start-here.md
   - title: Introduction
     contentPath: 00-setup.md
   - title: "Step 1 — Your first sandbox"
