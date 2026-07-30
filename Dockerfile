@@ -14,5 +14,5 @@ ARG RUNTIME_IMAGE=dockersamples/simspace:latest
 FROM ${RUNTIME_IMAGE}
 
 # Replace the runtime image's sample lab with this repo's lab.
-RUN rm -rf /usr/share/nginx/html/lab
-COPY lab/ /usr/share/nginx/html/lab/
+RUN rm -rf /usr/share/nginx/html/labs
+COPY labs/ /usr/share/nginx/html/labs/
