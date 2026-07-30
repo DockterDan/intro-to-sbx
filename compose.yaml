@@ -18,12 +18,12 @@ services:
     ports:
       - "5173:5173"
     volumes:
-      - ./lab:/usr/local/app/public/lab
+      - ./labs:/usr/local/app/public/labs
 
   # One-shot validator. Run with `docker compose run --rm validate`.
   validate:
     image: ${SIMSPACE_AUTHORING_IMAGE:-dockersamples/simspace-authoring:latest}
     profiles: ["tools"]
-    command: npm run validate-lab -- /lab
+    command: npm run validate-lab -- /labs
     volumes:
-      - ./lab:/lab:ro
+      - ./labs:/labs:ro
