@@ -84,6 +84,19 @@ Found while authoring; none block the lab.
    the injected check mark reflows the layout so buttons visibly shift;
    the color change alone would be enough.
 
+7. **Stale cached shells should self-recover** — after the lab→labs
+   migration deployed, returning visitors were stuck on the old
+   service-worker-cached app, which 404s fetching the removed
+   `lab/labspace.yaml`. Refreshing does NOT heal it: the new worker installs
+   but sits in "waiting" (no `skipWaiting`), and the old worker controls the
+   page for as long as the tab lives — users must fully close the tab to
+   recover, which nobody knows to do. Proposal, either half sufficient:
+   (a) the service worker should `skipWaiting()` + `clients.claim()` so
+   updates take over on next reload; (b) when the app's lab-config fetch
+   404s, assume a stale shell — unregister the worker and reload once
+   automatically. Together they'd make migrations invisible to returning
+   visitors.
+
 ## Change log (authoring rounds)
 
 - **v1** — first full draft: 8 sections, ~100 scenarios, two terminals,
