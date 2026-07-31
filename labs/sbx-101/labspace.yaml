@@ -51,4 +51,4 @@ services:
   - id: docs
     title: Reference
     icon: menu_book
-    url: lab/resources.html
+    url: labs/sbx-101/resources.html

@@ -1,9 +1,20 @@
 name: Deploy lab to GitHub Pages
 
-# Validates this lab and publishes it to GitHub Pages on every push to main.
-# All the work lives in the reusable workflow in dockersamples/simspace, so this
-# file stays a one-liner. Enable Pages first: Settings → Pages → Source:
-# "GitHub Actions".
+# Inlined version of dockersamples/simspace's reusable deploy-lab.yml, with ONE
+# addition: a backward-compatibility copy of the lab at the old single-lab
+# path (site/lab/), so visitors still running the pre-multi-lab app shell from
+# their browser's service-worker cache get a working lab instead of a 404.
+#
+# TEMPORARY: once the stale-shell cohort ages out (or the runtime ships
+# self-recovering service workers), collapse this back to the one-liner:
+#
+#   jobs:
+#     deploy:
+#       uses: dockersamples/simspace/.github/workflows/deploy-lab.yml@main
+#       with:
+#         runtime-tag: "latest"
+#
+# Enable Pages first: Settings → Pages → Source: "GitHub Actions".
 
 on:
   push:
@@ -15,11 +26,61 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+env:
+  RUNTIME_IMAGE: dockersamples/simspace:latest
+  AUTHORING_IMAGE: dockersamples/simspace-authoring:latest
+
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate labs
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/labs:/labs:ro" \
+            "$AUTHORING_IMAGE" \
+            npm run validate-lab -- /labs
+
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Assemble static site (runtime payload + labs + catalog + legacy path)
+        run: |
+          set -euo pipefail
+          docker pull "$RUNTIME_IMAGE"
+          cid="$(docker create "$RUNTIME_IMAGE")"
+          mkdir -p site
+          docker cp "$cid":/usr/share/nginx/html/. site/
+          docker rm "$cid"
+          # Replace the runtime image's sample labs + catalog with this repo's.
+          rm -rf site/labs site/labs.json
+          mkdir -p site/labs
+          cp -R labs/. site/labs/
+          # Generate labs.json for these labs (from each labspace.yaml).
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" \
+            "$AUTHORING_IMAGE" \
+            npm run generate-catalog -- /work/labs /work/site/labs.json
+          # Backward compatibility: old cached app shells fetch lab/labspace.yaml.
+          mkdir -p site/lab
+          cp -R labs/sbx-101/. site/lab/
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
   deploy:
-    uses: dockersamples/simspace/.github/workflows/deploy-lab.yml@main
-    with:
-      labs-dir: labs
-      # Pin to a released version for stable labs, e.g. "1". "latest" tracks the
-      # newest runtime — convenient, but the app can change under you.
-      runtime-tag: "latest"
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
