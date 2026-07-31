@@ -97,12 +97,11 @@ Found while authoring; none block the lab.
    automatically. Together they'd make migrations invisible to returning
    visitors.
 
-8. **Pop-out terminal window renders unstyled** — the logo's right-click
-   menu (itself undiscoverable, see item 1) offers "open terminal in a new
-   window"; the popup is written into `about:blank` without the app's CSS
-   or icon font, so tabs render as raw ligature text ("terminalTerminal A")
-   over an unstyled input. Observed on the multi-lab runtime, GitHub Pages
-   deployment, Chrome.
+   A second symptom of the same staleness: in a profile carrying the old
+   cache, the pop-out terminal (logo right-click → open in new window)
+   renders unstyled — raw icon ligatures, bare input — while clean/incognito
+   profiles render it perfectly. Verified not a regression in the multi-lab
+   runtime itself.
 
 ## Change log (authoring rounds)
 
